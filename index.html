@@ -623,6 +623,66 @@
     }
 
     .dialog ol li { margin-bottom: 6px; }
+
+    .win-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 28px;
+      background: rgba(4, 14, 16, 0.42);
+      padding: calc(24px + var(--safe-top)) 20px calc(24px + var(--safe-bottom));
+    }
+
+    .win-overlay.open { display: flex; }
+
+    .win-overlay canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .win-messages {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(28px, 8vh, 64px);
+      width: min(100%, 480px);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .win-line {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(2rem, 9vw, 3.4rem);
+      font-weight: 700;
+      line-height: 1.15;
+      color: #fff8e6;
+      text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+      padding: 0 8px;
+    }
+
+    .win-line.flip {
+      transform: rotate(180deg);
+    }
+
+    .win-line[hidden] { display: none !important; }
+
+    .win-actions {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 320px);
+    }
+
+    .win-actions .btn-primary { width: 100%; }
   </style>
 </head>
 <body>
@@ -745,13 +805,25 @@
     </div>
   </div>
 
+  <div class="win-overlay" id="win-overlay" aria-live="polite">
+    <canvas id="win-canvas" aria-hidden="true"></canvas>
+    <div class="win-messages">
+      <div class="win-line flip" id="win-line-flip" hidden></div>
+      <div class="win-line" id="win-line"></div>
+    </div>
+    <div class="win-actions">
+      <button type="button" class="btn-primary" id="win-new-game">Neues Spiel</button>
+    </div>
+  </div>
+
   <script>
     const COOKIE_NAME = "punktestand_session";
     const COOKIE_DAYS = 30;
     const MIN_PLAYERS = 2;
     const MAX_PLAYERS = 8;
+    const WINNING_SCORE = 6000;
 
-    /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean }} Session */
+    /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean, winner: number | null }} Session */
 
     const els = {
       viewport: document.getElementById("viewport"),
@@ -783,10 +855,18 @@
       homescreenText: document.getElementById("homescreen-text"),
       homescreenSteps: document.getElementById("homescreen-steps"),
       homescreenOk: document.getElementById("homescreen-ok"),
+      winOverlay: document.getElementById("win-overlay"),
+      winCanvas: document.getElementById("win-canvas"),
+      winLine: document.getElementById("win-line"),
+      winLineFlip: document.getElementById("win-line-flip"),
+      winNewGame: document.getElementById("win-new-game"),
     };
 
     /** @type {BeforeInstallPromptEvent | null} */
     let deferredInstallPrompt = null;
+    let confettiRaf = 0;
+    /** @type {Array<{x:number,y:number,vx:number,vy:number,w:number,h:number,rot:number,vr:number,color:string,life:number}>} */
+    let confettiParticles = [];
 
     /** @type {Session | null} */
     let session = null;
@@ -823,6 +903,7 @@
           scores: session.scores,
           active: session.active,
           flipView: Boolean(session.flipView),
+          winner: Number.isInteger(session.winner) ? session.winner : null,
         }),
         COOKIE_DAYS
       );
@@ -842,6 +923,10 @@
         ) {
           return null;
         }
+        const winner =
+          Number.isInteger(data.winner) && data.winner >= 0 && data.winner < data.names.length
+            ? data.winner
+            : null;
         return {
           names: data.names.map(String),
           scores: data.scores.map((list) => (Array.isArray(list) ? list.map(Number) : [])),
@@ -849,10 +934,36 @@
           input: "",
           edit: null,
           flipView: Boolean(data.flipView),
+          winner,
         };
       } catch {
         return null;
       }
+    }
+
+    function playerTotal(player) {
+      return session.scores[player].reduce((a, b) => a + b, 0);
+    }
+
+    function findWinner(preferPlayer) {
+      if (
+        preferPlayer != null &&
+        preferPlayer >= 0 &&
+        preferPlayer < session.names.length &&
+        playerTotal(preferPlayer) >= WINNING_SCORE
+      ) {
+        return preferPlayer;
+      }
+      let best = null;
+      let bestScore = WINNING_SCORE - 1;
+      for (let i = 0; i < session.names.length; i++) {
+        const total = playerTotal(i);
+        if (total >= WINNING_SCORE && total > bestScore) {
+          best = i;
+          bestScore = total;
+        }
+      }
+      return best;
     }
 
     function facingPlayer() {
@@ -1018,19 +1129,129 @@
 
     function renderChrome() {
       const editing = Boolean(session.edit);
-      els.topStatus.textContent = "Punktestand";
-      els.topStatus.classList.add("muted");
-      els.hint.textContent = editing
-        ? "Zelle ändern und OK tippen – oder im Menü abbrechen."
-        : "Tippe auf einen Wert, um ihn zu korrigieren.";
-      els.menuCancelEdit.hidden = !editing;
-      els.menuUndo.hidden = editing;
+      const won = session.winner != null;
+      els.topStatus.textContent = won ? "Spiel beendet" : "Punktestand";
+      els.topStatus.classList.toggle("muted", !won);
+      els.hint.textContent = won
+        ? `Ziel: ${WINNING_SCORE} Punkte – neues Spiel über das Menü.`
+        : editing
+          ? "Zelle ändern und OK tippen – oder im Menü abbrechen."
+          : "Tippe auf einen Wert, um ihn zu korrigieren.";
+      els.menuCancelEdit.hidden = !editing || won;
+      els.menuUndo.hidden = editing || won;
       applyViewportFlip();
+      syncWinOverlay();
     }
 
     function renderAll() {
       renderTable();
       renderChrome();
+    }
+
+    function resizeWinCanvas() {
+      const canvas = els.winCanvas;
+      if (!canvas) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function spawnConfettiBurst(count) {
+      const colors = ["#d9b15a", "#4ec59c", "#f7f2e7", "#ef7d76", "#8fd0c2", "#ffd98a"];
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      for (let i = 0; i < count; i++) {
+        const fromTop = Math.random() < 0.55;
+        confettiParticles.push({
+          x: Math.random() * w,
+          y: fromTop ? -20 - Math.random() * 80 : h * (0.25 + Math.random() * 0.2),
+          vx: (Math.random() - 0.5) * (fromTop ? 4 : 10),
+          vy: fromTop ? 2 + Math.random() * 4 : -8 - Math.random() * 8,
+          w: 5 + Math.random() * 6,
+          h: 7 + Math.random() * 8,
+          rot: Math.random() * Math.PI * 2,
+          vr: (Math.random() - 0.5) * 0.25,
+          color: colors[(Math.random() * colors.length) | 0],
+          life: 1,
+        });
+      }
+    }
+
+    function stopConfetti() {
+      if (confettiRaf) cancelAnimationFrame(confettiRaf);
+      confettiRaf = 0;
+      confettiParticles = [];
+      const ctx = els.winCanvas && els.winCanvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      }
+    }
+
+    function startConfetti() {
+      stopConfetti();
+      resizeWinCanvas();
+      spawnConfettiBurst(90);
+      let lastBurst = performance.now();
+      const tick = (now) => {
+        if (!els.winOverlay.classList.contains("open")) {
+          stopConfetti();
+          return;
+        }
+        if (now - lastBurst > 700) {
+          spawnConfettiBurst(28);
+          lastBurst = now;
+        }
+        const ctx = els.winCanvas.getContext("2d");
+        if (!ctx) return;
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        const next = [];
+        for (const p of confettiParticles) {
+          p.vy += 0.18;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rot += p.vr;
+          p.life -= 0.004;
+          if (p.life <= 0 || p.y > window.innerHeight + 40) continue;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+          next.push(p);
+        }
+        confettiParticles = next;
+        confettiRaf = requestAnimationFrame(tick);
+      };
+      confettiRaf = requestAnimationFrame(tick);
+    }
+
+    function syncWinOverlay() {
+      if (!session || session.winner == null) {
+        els.winOverlay.classList.remove("open");
+        stopConfetti();
+        return;
+      }
+      const text = `${session.names[session.winner]} hat gewonnen`;
+      els.winLine.textContent = text;
+      const dual = Boolean(session.flipView);
+      els.winLineFlip.hidden = !dual;
+      if (dual) els.winLineFlip.textContent = text;
+      const wasOpen = els.winOverlay.classList.contains("open");
+      els.winOverlay.classList.add("open");
+      els.viewport.classList.remove("flipped");
+      if (!wasOpen) startConfetti();
+    }
+
+    function applyWinner(preferPlayer) {
+      session.winner = findWinner(preferPlayer);
+      if (session.winner != null) {
+        session.edit = null;
+        session.input = "";
+      }
     }
 
     function shuffle(list) {
@@ -1083,6 +1304,7 @@
         input: "",
         edit: null,
         flipView: false,
+        winner: null,
       };
       saveSession();
       showScreen("play");
@@ -1110,6 +1332,7 @@
       session.flipView = !session.flipView;
       saveSession();
       applyViewportFlip();
+      syncWinOverlay();
       closeMenu();
       showToast(
         session.flipView
@@ -1130,6 +1353,7 @@
     }
 
     function commitOk() {
+      if (!session || session.winner != null) return;
       if (session.input === "") {
         showToast("Bitte Punkte eingeben");
         return;
@@ -1146,20 +1370,26 @@
         session.scores[player][round] = value;
         session.edit = null;
         session.input = "";
+        applyWinner(player);
         saveSession();
         renderAll();
-        showToast("Eintrag korrigiert");
+        if (session.winner == null) showToast("Eintrag korrigiert");
         return;
       }
 
-      session.scores[session.active].push(value);
-      session.active = (session.active + 1) % session.names.length;
+      const scorer = session.active;
+      session.scores[scorer].push(value);
+      applyWinner(scorer);
+      if (session.winner == null) {
+        session.active = (session.active + 1) % session.names.length;
+      }
       session.input = "";
       saveSession();
       renderAll();
     }
 
     function beginEdit(player, round) {
+      if (!session || session.winner != null) return;
       if (round >= session.scores[player].length) return;
       session.edit = { player, round };
       session.input = String(session.scores[player][round]);
@@ -1176,7 +1406,11 @@
 
     function undoLast() {
       closeMenu();
-      if (session.edit) return;
+      if (!session || session.edit) return;
+      if (session.winner != null) {
+        showToast("Spiel ist beendet");
+        return;
+      }
       const count = session.names.length;
       const prev = (session.active - 1 + count) % count;
       if (session.scores[prev].length === 0) {
@@ -1186,6 +1420,7 @@
       session.scores[prev].pop();
       session.active = prev;
       session.input = "";
+      applyWinner(null);
       saveSession();
       renderAll();
       showToast("Letzter Eintrag gelöscht");
@@ -1204,6 +1439,8 @@
       els.viewport.classList.remove("flipped");
       els.menuFlip.setAttribute("aria-checked", "false");
       els.overlay.classList.remove("open");
+      els.winOverlay.classList.remove("open");
+      stopConfetti();
       closeMenu();
       const first = document.getElementById("name-0");
       if (first) first.focus();
@@ -1240,7 +1477,7 @@
     });
 
     function handleKey(key) {
-      if (!session) return;
+      if (!session || session.winner != null) return;
       if (key === "ok") commitOk();
       else if (key === "del") deleteDigit();
       else appendDigit(key);
@@ -1389,6 +1626,12 @@
     els.confirmCancel.addEventListener("click", () => els.overlay.classList.remove("open"));
     els.confirmOk.addEventListener("click", resetToSetup);
     els.homescreenOk.addEventListener("click", () => els.homescreenOverlay.classList.remove("open"));
+    els.winNewGame.addEventListener("click", () => {
+      els.overlay.classList.add("open");
+    });
+    window.addEventListener("resize", () => {
+      if (els.winOverlay.classList.contains("open")) resizeWinCanvas();
+    });
 
     window.addEventListener("beforeinstallprompt", (event) => {
       event.preventDefault();
