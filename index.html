@@ -143,7 +143,7 @@
       <div class="win-line" id="win-line"></div>
     </div>
     <div class="win-actions">
-      <button type="button" class="btn-primary" id="win-new-game">Neues Spiel</button>
+      <button type="button" class="btn-primary" id="win-ok">OK</button>
     </div>
   </div>
 
@@ -154,7 +154,7 @@
     const MAX_PLAYERS = 8;
     const WINNING_SCORE = 6000;
 
-    /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean, winner: number | null }} Session */
+    /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean, winner: number | null, winDismissed: boolean }} Session */
 
     const els = {
       viewport: document.getElementById("viewport"),
@@ -190,7 +190,7 @@
       winCanvas: document.getElementById("win-canvas"),
       winLine: document.getElementById("win-line"),
       winLineFlip: document.getElementById("win-line-flip"),
-      winNewGame: document.getElementById("win-new-game"),
+      winOk: document.getElementById("win-ok"),
     };
 
     /** @type {BeforeInstallPromptEvent | null} */
@@ -235,6 +235,7 @@
           active: session.active,
           flipView: Boolean(session.flipView),
           winner: Number.isInteger(session.winner) ? session.winner : null,
+          winDismissed: Boolean(session.winDismissed),
         }),
         COOKIE_DAYS
       );
@@ -266,6 +267,7 @@
           edit: null,
           flipView: Boolean(data.flipView),
           winner,
+          winDismissed: Boolean(data.winDismissed),
         };
       } catch {
         return null;
@@ -460,16 +462,13 @@
 
     function renderChrome() {
       const editing = Boolean(session.edit);
-      const won = session.winner != null;
-      els.topStatus.textContent = won ? "Spiel beendet" : "Punktestand";
-      els.topStatus.classList.toggle("muted", !won);
-      els.hint.textContent = won
-        ? `Ziel: ${WINNING_SCORE} Punkte – neues Spiel über das Menü.`
-        : editing
-          ? "Zelle ändern und OK tippen – oder im Menü abbrechen."
-          : "Tippe auf einen Wert, um ihn zu korrigieren.";
-      els.menuCancelEdit.hidden = !editing || won;
-      els.menuUndo.hidden = editing || won;
+      els.topStatus.textContent = "Punktestand";
+      els.topStatus.classList.add("muted");
+      els.hint.textContent = editing
+        ? "Zelle ändern und OK tippen – oder im Menü abbrechen."
+        : "Tippe auf einen Wert, um ihn zu korrigieren.";
+      els.menuCancelEdit.hidden = !editing;
+      els.menuUndo.hidden = editing;
       applyViewportFlip();
       syncWinOverlay();
     }
@@ -561,7 +560,7 @@
     }
 
     function syncWinOverlay() {
-      if (!session || session.winner == null) {
+      if (!session || session.winner == null || session.winDismissed) {
         els.winOverlay.classList.remove("open");
         stopConfetti();
         return;
@@ -577,12 +576,23 @@
       if (!wasOpen) startConfetti();
     }
 
-    function applyWinner(preferPlayer) {
+    function applyWinner(preferPlayer, celebrate) {
       session.winner = findWinner(preferPlayer);
-      if (session.winner != null) {
-        session.edit = null;
-        session.input = "";
+      if (session.winner == null) {
+        session.winDismissed = false;
+        return;
       }
+      if (celebrate) session.winDismissed = false;
+    }
+
+    function dismissWinOverlay() {
+      if (!session) return;
+      session.winDismissed = true;
+      saveSession();
+      els.winOverlay.classList.remove("open");
+      stopConfetti();
+      applyViewportFlip();
+      renderChrome();
     }
 
     function shuffle(list) {
@@ -636,6 +646,7 @@
         edit: null,
         flipView: false,
         winner: null,
+        winDismissed: false,
       };
       saveSession();
       showScreen("play");
@@ -684,7 +695,7 @@
     }
 
     function commitOk() {
-      if (!session || session.winner != null) return;
+      if (!session) return;
       if (session.input === "") {
         showToast("Bitte Punkte eingeben");
         return;
@@ -698,29 +709,32 @@
       if (session.edit) {
         const { player, round } = session.edit;
         if (round >= session.scores[player].length) return;
+        const before = playerTotal(player);
         session.scores[player][round] = value;
+        const after = playerTotal(player);
         session.edit = null;
         session.input = "";
-        applyWinner(player);
+        applyWinner(player, before < WINNING_SCORE && after >= WINNING_SCORE);
         saveSession();
         renderAll();
-        if (session.winner == null) showToast("Eintrag korrigiert");
+        if (!(before < WINNING_SCORE && after >= WINNING_SCORE)) {
+          showToast("Eintrag korrigiert");
+        }
         return;
       }
 
       const scorer = session.active;
       session.scores[scorer].push(value);
-      applyWinner(scorer);
-      if (session.winner == null) {
-        session.active = (session.active + 1) % session.names.length;
-      }
+      const reached = playerTotal(scorer) >= WINNING_SCORE;
+      applyWinner(scorer, reached);
+      session.active = (session.active + 1) % session.names.length;
       session.input = "";
       saveSession();
       renderAll();
     }
 
     function beginEdit(player, round) {
-      if (!session || session.winner != null) return;
+      if (!session) return;
       if (round >= session.scores[player].length) return;
       session.edit = { player, round };
       session.input = String(session.scores[player][round]);
@@ -738,10 +752,6 @@
     function undoLast() {
       closeMenu();
       if (!session || session.edit) return;
-      if (session.winner != null) {
-        showToast("Spiel ist beendet");
-        return;
-      }
       const count = session.names.length;
       const prev = (session.active - 1 + count) % count;
       if (session.scores[prev].length === 0) {
@@ -751,7 +761,7 @@
       session.scores[prev].pop();
       session.active = prev;
       session.input = "";
-      applyWinner(null);
+      applyWinner(null, false);
       saveSession();
       renderAll();
       showToast("Letzter Eintrag gelöscht");
@@ -808,7 +818,7 @@
     });
 
     function handleKey(key) {
-      if (!session || session.winner != null) return;
+      if (!session) return;
       if (key === "ok") commitOk();
       else if (key === "del") deleteDigit();
       else appendDigit(key);
