@@ -9,8 +9,10 @@ Mobiler **Punktezähler** für Würfelspiele (nur Summen pro Runde, kein Spielab
 ## Funktionen
 
 - **2–8 Spieler**, Session per Cookie auf dem Gerät
-- Glass-UI mit durchscheinenden Flächen und Linienhintergrund
+- Leere Namen werden mit Fantasienamen aus [`names.js`](./names.js) gefüllt
+- „Neues Spiel“ behält die letzten Spielernamen
 - Rundenpunkte direkt in die hervorgehobene Tabellenzelle
+- Sieg ab **6000** Punkten mit Konfetti und Gewinnanzeige
 - Menü: Ansicht drehen, Vollbild, Zum Homebildschirm, Neues Spiel
 
 ## GitHub Pages
