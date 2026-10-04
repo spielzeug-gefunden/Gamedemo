@@ -10,10 +10,8 @@ Mobiler **Punktezähler** für Würfelspiele (nur Summen pro Runde, kein Spielab
 
 - **2–8 Spieler**, Session per Cookie auf dem Gerät
 - Glass-UI mit durchscheinenden Flächen und Linienhintergrund
-- Punktetabelle + Ziffernblock 0–9 / OK
-- Tippen auf Tabellenwerte zur Korrektur
-- Menü **Ansicht drehen** für gegenüber sitzende Spieler
-- **Vollbild** über Web App Manifest (`display: fullscreen`) und Fullscreen-API
+- Rundenpunkte direkt in die hervorgehobene Tabellenzelle
+- Menü: Ansicht drehen, Vollbild, Zum Homebildschirm, Neues Spiel
 
 ## GitHub Pages
 
