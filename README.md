@@ -12,7 +12,7 @@ Mobiler **Punktezähler** für Würfelspiele (nur Summen pro Runde, kein Spielab
 - Leere Namen werden mit Fantasienamen aus [`names.js`](./names.js) gefüllt
 - „Neues Spiel“ behält die letzten Spielernamen
 - Rundenpunkte direkt in die hervorgehobene Tabellenzelle
-- Sieg ab **6000** Punkten mit Konfetti und Gewinnanzeige
+- Ab **6000** Punkten Gewinnanzeige mit Konfetti; **OK** führt zurück zum Spiel (weiter/korrigieren möglich)
 - Menü: Ansicht drehen, Vollbild, Zum Homebildschirm, Neues Spiel
 
 ## GitHub Pages

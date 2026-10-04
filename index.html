@@ -969,7 +969,7 @@
     els.confirmCancel.addEventListener("click", () => els.overlay.classList.remove("open"));
     els.confirmOk.addEventListener("click", resetToSetup);
     els.homescreenOk.addEventListener("click", () => els.homescreenOverlay.classList.remove("open"));
-    els.winNewGame.addEventListener("click", askNewGame);
+    els.winOk.addEventListener("click", dismissWinOverlay);
     window.addEventListener("resize", () => {
       if (els.winOverlay.classList.contains("open")) resizeWinCanvas();
     });
