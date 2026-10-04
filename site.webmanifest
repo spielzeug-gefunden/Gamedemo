@@ -1,0 +1,12 @@
+{
+  "name": "Punktestand",
+  "short_name": "Punktestand",
+  "description": "Mobiler Punktezähler für Würfelspiele",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#071a1c",
+  "theme_color": "#0a2a28",
+  "lang": "de"
+}
