@@ -99,6 +99,5 @@ window.FANTASY_NAMES = [
   "Drachenfrucht",
   "Sternenfrucht",
   "Glücksklee",
-  "Vierblättrig",
   "Hufeisen Heidi",
 ];
