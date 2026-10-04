@@ -445,6 +445,35 @@
 
       const scroll = els.table.closest(".table-scroll");
       if (scroll) scroll.scrollTop = scroll.scrollHeight;
+      requestAnimationFrame(() => scrollFocusedCellIntoView());
+    }
+
+    function stickyRoundWidth(scroll) {
+      const sticky = scroll.querySelector("th.round, td.round");
+      return sticky ? sticky.getBoundingClientRect().width : 0;
+    }
+
+    function scrollFocusedCellIntoView() {
+      const scroll = els.table && els.table.closest(".table-scroll");
+      if (!scroll) return;
+
+      const cell =
+        els.tbody.querySelector("td.score-cell.editing") ||
+        els.thead.querySelector("th.player-name.active");
+      if (!cell) return;
+
+      const pad = 12;
+      const stickyW = stickyRoundWidth(scroll);
+      const viewLeft = scroll.scrollLeft + stickyW;
+      const viewRight = scroll.scrollLeft + scroll.clientWidth;
+      const cellLeft = cell.offsetLeft;
+      const cellRight = cellLeft + cell.offsetWidth;
+
+      if (cellLeft < viewLeft + pad) {
+        scroll.scrollLeft = Math.max(0, cellLeft - stickyW - pad);
+      } else if (cellRight > viewRight - pad) {
+        scroll.scrollLeft = cellRight - scroll.clientWidth + pad;
+      }
     }
 
     function updateEditingCell() {
