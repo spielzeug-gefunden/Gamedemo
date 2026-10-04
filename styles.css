@@ -387,6 +387,12 @@ button, a, .keys, .score-cell {
 
 .menu button:active { background: rgba(255, 255, 255, 0.08); }
 .menu button.danger { color: #ffb4ae; }
+.menu button#menu-penalty { color: #ffd08a; }
+
+.scores td.score-cell.negative,
+.scores tfoot td.negative {
+  color: #ffd08a;
+}
 .menu button .check { float: right; color: var(--accent); opacity: 0; }
 .menu button[aria-checked="true"] .check { opacity: 1; }
 

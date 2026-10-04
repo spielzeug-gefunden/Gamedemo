@@ -70,6 +70,7 @@
               <button type="button" role="menuitem" id="menu-fullscreen">Vollbild</button>
               <button type="button" role="menuitem" id="menu-homescreen">Zu Homebildschirm hinzufügen</button>
               <button type="button" role="menuitem" id="menu-undo">Letzten Eintrag löschen</button>
+              <button type="button" role="menuitem" id="menu-penalty">−1000 für Führende</button>
               <button type="button" role="menuitem" id="menu-cancel-edit" hidden>Bearbeiten abbrechen</button>
               <button type="button" role="menuitem" class="danger" id="menu-new">Neues Spiel…</button>
             </div>
@@ -153,6 +154,7 @@
     const MIN_PLAYERS = 2;
     const MAX_PLAYERS = 8;
     const WINNING_SCORE = 6000;
+    const LEADER_PENALTY = 1000;
 
     /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean, winner: number | null, winDismissed: boolean }} Session */
 
@@ -170,6 +172,7 @@
       menuFullscreen: document.getElementById("menu-fullscreen"),
       menuHomescreen: document.getElementById("menu-homescreen"),
       menuUndo: document.getElementById("menu-undo"),
+      menuPenalty: document.getElementById("menu-penalty"),
       menuCancelEdit: document.getElementById("menu-cancel-edit"),
       menuNew: document.getElementById("menu-new"),
       table: document.getElementById("score-table"),
@@ -341,6 +344,23 @@
       return session.scores.map((list) => list.reduce((a, b) => a + b, 0));
     }
 
+    function formatScore(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return String(value);
+      if (n < 0) return `−${Math.abs(n)}`;
+      return String(n);
+    }
+
+    function leadingPlayerIndexes() {
+      const sums = totals();
+      const best = Math.max(...sums);
+      const leaders = [];
+      for (let i = 0; i < sums.length; i++) {
+        if (sums[i] === best) leaders.push(i);
+      }
+      return leaders;
+    }
+
     function maxRounds() {
       return Math.max(0, ...session.scores.map((list) => list.length));
     }
@@ -391,7 +411,7 @@
       }
       if (round < session.scores[player].length) {
         return {
-          value: String(session.scores[player][round]),
+          value: formatScore(session.scores[player][round]),
           editing: false,
           empty: false,
           interactive: true,
@@ -421,10 +441,16 @@
         const cells = [];
         for (let p = 0; p < playerCount; p++) {
           const cell = cellDisplay(p, r);
+          const negative =
+            !cell.empty &&
+            !cell.editing &&
+            r < session.scores[p].length &&
+            session.scores[p][r] < 0;
           const classes = [
             "score-cell",
             cell.empty ? "empty" : "",
             cell.editing ? "editing" : "",
+            negative ? "negative" : "",
           ]
             .filter(Boolean)
             .join(" ");
@@ -442,7 +468,12 @@
       const sums = totals();
       els.tfoot.innerHTML = `<tr>
         <td class="round">Σ</td>
-        ${sums.map((sum) => `<td>${sum}</td>`).join("")}
+        ${sums
+          .map(
+            (sum) =>
+              `<td${sum < 0 ? ' class="negative"' : ""}>${escapeHtml(formatScore(sum))}</td>`
+          )
+          .join("")}
       </tr>`;
 
       const scroll = els.table.closest(".table-scroll");
@@ -498,6 +529,7 @@
         : "Tippe auf einen Wert, um ihn zu korrigieren.";
       els.menuCancelEdit.hidden = !editing;
       els.menuUndo.hidden = editing;
+      els.menuPenalty.hidden = editing;
       applyViewportFlip();
       syncWinOverlay();
     }
@@ -713,8 +745,10 @@
     }
 
     function appendDigit(digit) {
-      if (session.input.length >= 6) return;
-      session.input = session.input === "0" ? digit : session.input + digit;
+      if (session.input.length >= 7) return;
+      if (session.input === "0") session.input = digit;
+      else if (session.input === "-0") session.input = `-${digit}`;
+      else session.input += digit;
       updateEditingCell();
     }
 
@@ -725,12 +759,12 @@
 
     function commitOk() {
       if (!session) return;
-      if (session.input === "") {
+      if (session.input === "" || session.input === "-") {
         showToast("Bitte Punkte eingeben");
         return;
       }
       const value = Number(session.input);
-      if (!Number.isFinite(value) || value < 0) {
+      if (!Number.isFinite(value)) {
         showToast("Ungültige Zahl");
         return;
       }
@@ -794,6 +828,21 @@
       saveSession();
       renderAll();
       showToast("Letzter Eintrag gelöscht");
+    }
+
+    function penalizeLeaders() {
+      closeMenu();
+      if (!session || session.edit) return;
+      const leaders = leadingPlayerIndexes();
+      for (const index of leaders) {
+        session.scores[index].push(-LEADER_PENALTY);
+      }
+      session.input = "";
+      applyWinner(null, false);
+      saveSession();
+      renderAll();
+      const names = leaders.map((i) => session.names[i]).join(", ");
+      showToast(`${names}: −${LEADER_PENALTY}`);
     }
 
     function resetToSetup() {
@@ -993,6 +1042,7 @@
     els.menuFullscreen.addEventListener("click", toggleFullscreen);
     els.menuHomescreen.addEventListener("click", addToHomescreen);
     els.menuUndo.addEventListener("click", undoLast);
+    els.menuPenalty.addEventListener("click", penalizeLeaders);
     els.menuCancelEdit.addEventListener("click", cancelEdit);
     els.menuNew.addEventListener("click", askNewGame);
     els.confirmCancel.addEventListener("click", () => els.overlay.classList.remove("open"));
