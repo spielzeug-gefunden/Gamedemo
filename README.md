@@ -3,7 +3,7 @@
 Mobiler **Punktezähler** für Würfelspiele (nur Summen pro Runde, kein Spielablauf).
 
 - URL (nach Deploy): `https://spielzeug-gefunden.github.io/Gamedemo/`
-- Datei: [`index.html`](./index.html)
+- Dateien: [`index.html`](./index.html), [`styles.css`](./styles.css), [`names.js`](./names.js)
 - Lizenz: [MIT](./LICENSE)
 
 ## Funktionen
