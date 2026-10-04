@@ -3,32 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b3d2e" />
+  <meta name="theme-color" content="#0a2a28" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Punktestand</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --felt: #0b3d2e;
-      --felt-deep: #072820;
-      --felt-light: #145c45;
-      --paper: #f3efe6;
-      --ink: #14201c;
-      --ink-soft: #4a5c54;
-      --line: rgba(20, 32, 28, 0.12);
-      --accent: #e8a317;
-      --accent-ink: #2a1d00;
-      --ok: #1f8a5b;
-      --ok-ink: #f4fff9;
-      --danger: #c23b3b;
-      --shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-      --radius: 18px;
+      --bg-0: #071a1c;
+      --bg-1: #0d3230;
+      --bg-2: #164843;
+      --line-soft: rgba(232, 214, 170, 0.14);
+      --line-strong: rgba(232, 214, 170, 0.28);
+      --glass: rgba(244, 240, 230, 0.14);
+      --glass-strong: rgba(248, 245, 236, 0.22);
+      --glass-ink: rgba(248, 245, 236, 0.92);
+      --ink: #f7f2e7;
+      --ink-soft: rgba(247, 242, 231, 0.68);
+      --ink-dark: #162421;
+      --accent: #d9b15a;
+      --accent-ink: #2a210c;
+      --ok: #3aa884;
+      --ok-ink: #f3fff9;
+      --danger: #e26a62;
       --header-h: 52px;
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --radius: 22px;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
     }
 
     * { box-sizing: border-box; }
@@ -36,11 +40,9 @@
     html, body {
       margin: 0;
       height: 100%;
-      font-family: "Outfit", system-ui, sans-serif;
-      color: var(--paper);
-      background:
-        radial-gradient(120% 80% at 50% -10%, #1a6b4f 0%, transparent 55%),
-        linear-gradient(180deg, var(--felt) 0%, var(--felt-deep) 100%);
+      font-family: "Manrope", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg-0);
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
@@ -50,19 +52,66 @@
       overflow: hidden;
     }
 
+    .atmosphere {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      background:
+        radial-gradient(90% 70% at 15% 10%, rgba(61, 140, 126, 0.35), transparent 55%),
+        radial-gradient(80% 60% at 90% 85%, rgba(217, 177, 90, 0.16), transparent 50%),
+        linear-gradient(165deg, var(--bg-2) 0%, var(--bg-1) 42%, var(--bg-0) 100%);
+    }
+
+    .atmosphere svg {
+      position: absolute;
+      inset: -8%;
+      width: 116%;
+      height: 116%;
+      opacity: 0.9;
+    }
+
+    .atmosphere .glow {
+      position: absolute;
+      width: 50vmax;
+      height: 50vmax;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.35;
+      animation: drift 18s ease-in-out infinite alternate;
+    }
+
+    .atmosphere .glow.a {
+      top: -10%;
+      left: -10%;
+      background: rgba(74, 168, 150, 0.45);
+    }
+
+    .atmosphere .glow.b {
+      right: -15%;
+      bottom: -20%;
+      background: rgba(217, 177, 90, 0.28);
+      animation-delay: -7s;
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(4%, -3%, 0) scale(1.08); }
+    }
+
     .viewport {
       position: relative;
+      z-index: 1;
       width: 100%;
       height: 100dvh;
       display: flex;
       justify-content: center;
-      transition: transform 0.35s ease;
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
       transform-origin: center center;
     }
 
-    .viewport.flipped {
-      transform: rotate(180deg);
-    }
+    .viewport.flipped { transform: rotate(180deg); }
 
     .app {
       width: min(100%, 480px);
@@ -87,19 +136,78 @@
     .screen { display: none; flex: 1; min-height: 0; flex-direction: column; gap: 12px; }
     .screen.active { display: flex; }
 
+    /* Glass surfaces */
+    .glass {
+      position: relative;
+      isolation: isolate;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05) 42%, rgba(255, 255, 255, 0.1)),
+        var(--glass);
+      backdrop-filter: blur(22px) saturate(1.35);
+      -webkit-backdrop-filter: blur(22px) saturate(1.35);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: var(--radius);
+      box-shadow:
+        var(--shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.42),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .glass::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: inherit;
+      padding: 1.5px;
+      background:
+        linear-gradient(130deg,
+          rgba(255, 255, 255, 0.75),
+          rgba(255, 255, 255, 0.05) 35%,
+          rgba(217, 177, 90, 0.35) 60%,
+          rgba(255, 255, 255, 0.2));
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      filter: url(#edge-refract);
+      opacity: 0.95;
+      z-index: 2;
+    }
+
+    .glass::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background:
+        radial-gradient(120% 70% at 10% 0%, rgba(255, 255, 255, 0.28), transparent 45%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 30%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .glass > * { position: relative; z-index: 3; }
+
     /* Setup */
     .setup-card {
       margin: auto 0;
-      background: rgba(243, 239, 230, 0.96);
+      padding: 26px 20px 18px;
       color: var(--ink);
-      border-radius: 28px;
-      padding: 28px 22px 22px;
-      box-shadow: var(--shadow);
+      max-height: calc(100dvh - 48px - var(--safe-top) - var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     .brand {
-      font-size: 0.85rem;
-      letter-spacing: 0.14em;
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: var(--ink-soft);
       margin: 0 0 8px;
@@ -108,56 +216,123 @@
 
     .setup-card h1 {
       margin: 0 0 8px;
-      font-size: 2rem;
-      line-height: 1.1;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 2.1rem;
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
     }
 
-    .setup-card p {
-      margin: 0 0 24px;
+    .setup-card .lede {
+      margin: 0 0 18px;
       color: var(--ink-soft);
-      line-height: 1.4;
+      line-height: 1.45;
+      font-size: 0.95rem;
     }
 
-    .field { margin-bottom: 14px; }
+    .setup-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -4px;
+      padding: 0 4px 8px;
+    }
+
+    .players-list { display: grid; gap: 10px; }
+
+    .field {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
 
     .field label {
+      grid-column: 1 / -1;
       display: block;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       font-weight: 600;
-      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       color: var(--ink-soft);
+      margin-bottom: -2px;
     }
 
     .field input {
       width: 100%;
-      border: 2px solid var(--line);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 14px;
-      padding: 14px 16px;
+      padding: 13px 14px;
       font: inherit;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 600;
       color: var(--ink);
-      background: #fffdf8;
+      background: rgba(8, 28, 30, 0.28);
       outline: none;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
 
-    .field input:focus { border-color: var(--felt-light); }
+    .field input:focus {
+      border-color: rgba(217, 177, 90, 0.7);
+      box-shadow: 0 0 0 3px rgba(217, 177, 90, 0.18);
+    }
 
-    .btn-primary {
-      width: 100%;
-      margin-top: 8px;
-      border: none;
-      border-radius: 16px;
-      padding: 16px;
+    .field input::placeholder { color: rgba(247, 242, 231, 0.35); }
+
+    .btn-icon {
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink);
       font: inherit;
-      font-size: 1.1rem;
-      font-weight: 700;
-      background: var(--felt);
-      color: var(--paper);
+      font-size: 1.3rem;
+      font-weight: 600;
       cursor: pointer;
     }
 
-    .btn-primary:active { transform: translateY(1px); }
+    .btn-icon:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-icon.danger { color: #ffb4ae; }
+
+    .setup-actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn-add {
+      border: 1px dashed rgba(255, 255, 255, 0.35);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-add:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary {
+      width: 100%;
+      border: 0;
+      border-radius: 16px;
+      padding: 15px;
+      font: inherit;
+      font-size: 1.05rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #e2c072, #c79a3d);
+      color: var(--accent-ink);
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    }
+
+    .btn-primary:active,
+    .btn-add:active,
+    .btn-icon:active { transform: translateY(1px); }
 
     /* Header */
     .topbar {
@@ -167,7 +342,7 @@
       grid-template-columns: 1fr auto;
       align-items: center;
       gap: 10px;
-      padding: 0 4px 0 8px;
+      padding: 0 2px 0 6px;
     }
 
     .top-status {
@@ -188,15 +363,17 @@
     .menu-btn {
       width: 48px;
       height: 48px;
-      border: 0;
-      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 16px;
       background: rgba(255, 255, 255, 0.1);
-      color: var(--paper);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      color: var(--ink);
       font: inherit;
-      font-size: 1.5rem;
+      font-size: 1.45rem;
       font-weight: 700;
-      letter-spacing: 0.05em;
       cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     }
 
     .menu {
@@ -204,11 +381,14 @@
       position: absolute;
       right: 0;
       top: calc(100% + 6px);
-      min-width: 210px;
-      background: var(--paper);
+      min-width: 230px;
+      background: rgba(18, 42, 42, 0.72);
+      backdrop-filter: blur(20px) saturate(1.3);
+      -webkit-backdrop-filter: blur(20px) saturate(1.3);
       color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 16px;
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
       overflow: hidden;
       z-index: 20;
     }
@@ -227,19 +407,11 @@
       cursor: pointer;
     }
 
-    .menu button:active { background: rgba(11, 61, 46, 0.08); }
-    .menu button.danger { color: var(--danger); }
-
-    .menu button .check {
-      float: right;
-      color: var(--felt);
-      font-weight: 700;
-      opacity: 0;
-    }
-
+    .menu button:active { background: rgba(255, 255, 255, 0.08); }
+    .menu button.danger { color: #ffb4ae; }
+    .menu button .check { float: right; color: var(--accent); opacity: 0; }
     .menu button[aria-checked="true"] .check { opacity: 1; }
 
-    /* Main play layout */
     .play-body {
       flex: 1;
       min-height: 0;
@@ -254,14 +426,6 @@
       min-height: 0;
       display: flex;
       flex-direction: column;
-      border-radius: 24px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-    }
-
-    .table-panel {
-      background: rgba(243, 239, 230, 0.97);
-      color: var(--ink);
     }
 
     .table-scroll {
@@ -272,61 +436,73 @@
     }
 
     table.scores {
-      width: 100%;
-      border-collapse: collapse;
+      width: max(100%, 280px);
+      min-width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
       font-variant-numeric: tabular-nums;
     }
 
     .scores th,
     .scores td {
-      padding: 12px 10px;
+      padding: 11px 10px;
       text-align: center;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
     }
 
     .scores th {
       position: sticky;
       top: 0;
-      background: #ebe5d8;
-      font-size: 0.92rem;
+      background: rgba(12, 36, 36, 0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-size: 0.9rem;
       font-weight: 700;
       z-index: 1;
     }
 
     .scores th.player-name {
+      min-width: 4.5rem;
       transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
     }
 
     .scores th.player-name.active {
-      background: rgba(232, 163, 23, 0.38);
-      color: var(--accent-ink);
+      background: rgba(217, 177, 90, 0.42);
+      color: #fff8e6;
       box-shadow: inset 0 -3px 0 var(--accent);
     }
 
     .scores th.round,
     .scores td.round {
-      width: 3.2rem;
+      width: 3rem;
       color: var(--ink-soft);
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
+      position: sticky;
+      left: 0;
+      background: rgba(12, 36, 36, 0.55);
+      z-index: 2;
     }
+
+    .scores th.round { z-index: 3; }
 
     .scores td.score-cell {
       font-family: "IBM Plex Mono", ui-monospace, monospace;
       font-weight: 600;
-      font-size: 1.05rem;
+      font-size: 1.02rem;
       cursor: pointer;
     }
 
-    .scores td.score-cell:active { background: rgba(11, 61, 46, 0.08); }
+    .scores td.score-cell:active { background: rgba(255, 255, 255, 0.08); }
 
     .scores td.score-cell.empty {
-      color: rgba(20, 32, 28, 0.28);
+      color: rgba(247, 242, 231, 0.28);
       font-weight: 500;
     }
 
     .scores td.score-cell.editing {
-      background: rgba(232, 163, 23, 0.28);
+      background: rgba(217, 177, 90, 0.28);
       outline: 2px solid var(--accent);
       outline-offset: -2px;
     }
@@ -334,29 +510,29 @@
     .scores tfoot td {
       position: sticky;
       bottom: 0;
-      background: #ebe5d8;
+      background: rgba(12, 36, 36, 0.62);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       font-family: "IBM Plex Mono", ui-monospace, monospace;
       font-weight: 700;
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       border-bottom: 0;
-      border-top: 2px solid rgba(20, 32, 28, 0.16);
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
     }
+
+    .scores tfoot td.round { z-index: 3; }
 
     .hint {
       flex: 0 0 auto;
       padding: 8px 12px 10px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--ink-soft);
       text-align: center;
-      background: #ebe5d8;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(8, 24, 26, 0.2);
     }
 
-    .keypad-panel {
-      background: rgba(7, 40, 32, 0.72);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 12px;
-      gap: 10px;
-    }
+    .keypad-panel { padding: 12px; gap: 10px; }
 
     .entry {
       flex: 0 0 auto;
@@ -364,22 +540,22 @@
       align-items: baseline;
       justify-content: space-between;
       gap: 12px;
-      padding: 4px 6px 2px;
+      padding: 2px 4px;
     }
 
     .entry-label {
-      font-size: 0.8rem;
-      letter-spacing: 0.06em;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      opacity: 0.75;
+      color: var(--ink-soft);
     }
 
     .entry-value {
       font-family: "IBM Plex Mono", ui-monospace, monospace;
       font-size: clamp(1.8rem, 8vw, 2.4rem);
       font-weight: 600;
-      letter-spacing: 0.02em;
       min-height: 1.2em;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.15);
     }
 
     .entry-value.placeholder { opacity: 0.35; }
@@ -394,30 +570,39 @@
     }
 
     .keys button {
-      border: 0;
+      border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 16px;
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--paper);
+      background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)),
+        rgba(255, 255, 255, 0.06);
+      color: var(--ink);
       font-family: "IBM Plex Mono", ui-monospace, monospace;
-      font-size: 1.45rem;
+      font-size: 1.4rem;
       font-weight: 600;
       cursor: pointer;
       min-height: 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
 
-    .keys button:active { background: rgba(255, 255, 255, 0.2); transform: scale(0.98); }
+    .keys button:active {
+      transform: scale(0.98);
+      background: rgba(255, 255, 255, 0.18);
+    }
 
     .keys .key-ok {
-      background: var(--ok);
+      background: linear-gradient(145deg, #4ec59c, #2f9a76);
+      border-color: rgba(255, 255, 255, 0.25);
       color: var(--ok-ink);
-      font-family: "Outfit", system-ui, sans-serif;
+      font-family: "Manrope", system-ui, sans-serif;
       font-weight: 700;
       letter-spacing: 0.04em;
     }
 
     .keys .key-del {
-      background: rgba(255, 255, 255, 0.06);
-      font-size: 1.2rem;
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 1.15rem;
     }
 
     .toast {
@@ -425,8 +610,11 @@
       left: 50%;
       bottom: calc(18px + var(--safe-bottom));
       transform: translateX(-50%) translateY(120%);
-      background: var(--paper);
+      background: rgba(18, 42, 42, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       padding: 12px 16px;
       border-radius: 999px;
       font-weight: 600;
@@ -439,16 +627,15 @@
     }
 
     .toast.show { transform: translateX(-50%) translateY(0); }
-
-    .viewport.flipped .toast {
-      bottom: calc(18px + var(--safe-top));
-    }
+    .viewport.flipped .toast { bottom: calc(18px + var(--safe-top)); }
 
     .overlay {
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.45);
+      background: rgba(4, 14, 16, 0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
       z-index: 30;
       align-items: center;
       justify-content: center;
@@ -459,16 +646,14 @@
 
     .dialog {
       width: min(100%, 360px);
-      background: var(--paper);
-      color: var(--ink);
-      border-radius: 22px;
       padding: 22px;
-      box-shadow: var(--shadow);
+      color: var(--ink);
     }
 
     .dialog h2 {
       margin: 0 0 8px;
-      font-size: 1.25rem;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.35rem;
     }
 
     .dialog p {
@@ -493,40 +678,75 @@
     }
 
     .btn-ghost {
-      background: rgba(20, 32, 28, 0.08);
+      background: rgba(255, 255, 255, 0.1);
       color: var(--ink);
+      border: 1px solid rgba(255, 255, 255, 0.16) !important;
     }
 
     .btn-danger {
-      background: var(--danger);
+      background: linear-gradient(145deg, #ef7d76, #c24a44);
       color: white;
     }
   </style>
 </head>
 <body>
+  <!-- SVG filters + decorative line art -->
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <defs>
+      <filter id="edge-refract" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.045 0.08" numOctaves="2" seed="7" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
+        <feGaussianBlur stdDeviation="0.25" />
+      </filter>
+      <linearGradient id="strokeGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#f0e2b8" stop-opacity="0.55" />
+        <stop offset="45%" stop-color="#f0e2b8" stop-opacity="0.12" />
+        <stop offset="100%" stop-color="#8fd0c2" stop-opacity="0.35" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="atmosphere" aria-hidden="true">
+    <div class="glow a"></div>
+    <div class="glow b"></div>
+    <svg viewBox="0 0 800 1200" preserveAspectRatio="xMidYMid slice">
+      <g fill="none" stroke="url(#strokeGrad)" stroke-linecap="round">
+        <path d="M-40 180 C160 80, 280 260, 420 180 S700 40, 860 160" stroke-width="1.2" />
+        <path d="M-20 320 C180 240, 300 420, 470 340 S760 220, 860 360" stroke-width="0.8" opacity="0.7" />
+        <path d="M60 520 C220 440, 340 640, 520 540 S780 430, 900 580" stroke-width="1.1" />
+        <path d="M-30 760 C200 680, 310 900, 520 800 S790 700, 880 860" stroke-width="0.9" opacity="0.75" />
+        <path d="M40 980 C240 900, 360 1120, 560 1020 S820 920, 900 1100" stroke-width="1.15" />
+        <circle cx="160" cy="210" r="46" stroke-width="0.7" opacity="0.45" />
+        <circle cx="620" cy="470" r="78" stroke-width="0.7" opacity="0.35" />
+        <circle cx="240" cy="860" r="110" stroke-width="0.6" opacity="0.28" />
+        <path d="M120 140 L132 168 L164 172 L140 194 L146 226 L120 210 L94 226 L100 194 L76 172 L108 168 Z" stroke-width="0.8" opacity="0.4" />
+        <path d="M680 780 L690 802 L714 806 L696 822 L700 846 L680 834 L660 846 L664 822 L646 806 L670 802 Z" stroke-width="0.8" opacity="0.35" />
+        <line x1="80" y1="40" x2="80" y2="1160" stroke-width="0.4" opacity="0.18" />
+        <line x1="400" y1="20" x2="400" y2="1180" stroke-width="0.35" opacity="0.12" />
+        <line x1="720" y1="50" x2="720" y2="1150" stroke-width="0.4" opacity="0.16" />
+      </g>
+    </svg>
+  </div>
+
   <div class="viewport" id="viewport">
     <div class="app">
-      <!-- Setup -->
       <section class="screen" id="screen-setup" aria-label="Neues Spiel">
-        <div class="setup-card">
+        <div class="glass setup-card">
           <p class="brand">Punktestand</p>
           <h1>Neues Spiel</h1>
-          <p>Namen eingeben – die Session bleibt auf diesem Gerät gespeichert.</p>
-          <form id="setup-form">
-            <div class="field">
-              <label for="name-0">Spieler 1</label>
-              <input id="name-0" name="name0" maxlength="24" autocomplete="nickname" required />
+          <p class="lede">Namen eingeben – die Session bleibt auf diesem Gerät gespeichert.</p>
+          <form id="setup-form" class="setup-form">
+            <div class="setup-scroll">
+              <div class="players-list" id="players-list"></div>
             </div>
-            <div class="field">
-              <label for="name-1">Spieler 2</label>
-              <input id="name-1" name="name1" maxlength="24" autocomplete="nickname" required />
+            <div class="setup-actions">
+              <button class="btn-add" id="btn-add-player" type="button">+ Spieler hinzufügen</button>
+              <button class="btn-primary" type="submit">Spiel starten</button>
             </div>
-            <button class="btn-primary" type="submit">Spiel starten</button>
           </form>
         </div>
       </section>
 
-      <!-- Play -->
       <section class="screen" id="screen-play" aria-label="Punktestand">
         <header class="topbar">
           <div class="top-status muted" id="top-status">Punktestand</div>
@@ -544,7 +764,7 @@
         </header>
 
         <div class="play-body">
-          <section class="table-panel" aria-label="Punktetabelle">
+          <section class="glass table-panel" aria-label="Punktetabelle">
             <div class="table-scroll">
               <table class="scores" id="score-table">
                 <thead></thead>
@@ -555,7 +775,7 @@
             <div class="hint" id="table-hint">Tippe auf einen Wert, um ihn zu korrigieren.</div>
           </section>
 
-          <section class="keypad-panel" aria-label="Zifferneingabe">
+          <section class="glass keypad-panel" aria-label="Zifferneingabe">
             <div class="entry">
               <span class="entry-label" id="entry-label">Rundenpunkte</span>
               <span class="entry-value placeholder" id="entry-value">0</span>
@@ -582,7 +802,7 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <div class="overlay" id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-      <div class="dialog">
+      <div class="glass dialog">
         <h2 id="confirm-title">Neues Spiel?</h2>
         <p>Die aktuelle Session auf diesem Gerät wird gelöscht.</p>
         <div class="dialog-actions">
@@ -596,7 +816,8 @@
   <script>
     const COOKIE_NAME = "punktestand_session";
     const COOKIE_DAYS = 30;
-    const PLAYER_COUNT = 2;
+    const MIN_PLAYERS = 2;
+    const MAX_PLAYERS = 8;
 
     /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean }} Session */
 
@@ -605,8 +826,8 @@
       setup: document.getElementById("screen-setup"),
       play: document.getElementById("screen-play"),
       form: document.getElementById("setup-form"),
-      name0: document.getElementById("name-0"),
-      name1: document.getElementById("name-1"),
+      playersList: document.getElementById("players-list"),
+      btnAddPlayer: document.getElementById("btn-add-player"),
       topStatus: document.getElementById("top-status"),
       menuBtn: document.getElementById("menu-btn"),
       menu: document.getElementById("menu"),
@@ -630,6 +851,8 @@
 
     /** @type {Session | null} */
     let session = null;
+    /** @type {string[]} */
+    let setupNames = ["", ""];
     let toastTimer = 0;
 
     function setCookie(name, value, days) {
@@ -639,11 +862,8 @@
 
     function getCookie(name) {
       const key = encodeURIComponent(name) + "=";
-      const parts = document.cookie.split("; ");
-      for (const part of parts) {
-        if (part.startsWith(key)) {
-          return decodeURIComponent(part.slice(key.length));
-        }
+      for (const part of document.cookie.split("; ")) {
+        if (part.startsWith(key)) return decodeURIComponent(part.slice(key.length));
       }
       return null;
     }
@@ -657,13 +877,16 @@
         deleteCookie(COOKIE_NAME);
         return;
       }
-      const payload = {
-        names: session.names,
-        scores: session.scores,
-        active: session.active,
-        flipView: Boolean(session.flipView),
-      };
-      setCookie(COOKIE_NAME, JSON.stringify(payload), COOKIE_DAYS);
+      setCookie(
+        COOKIE_NAME,
+        JSON.stringify({
+          names: session.names,
+          scores: session.scores,
+          active: session.active,
+          flipView: Boolean(session.flipView),
+        }),
+        COOKIE_DAYS
+      );
     }
 
     function loadSession() {
@@ -673,16 +896,17 @@
         const data = JSON.parse(raw);
         if (
           !Array.isArray(data.names) ||
-          data.names.length !== PLAYER_COUNT ||
           !Array.isArray(data.scores) ||
-          data.scores.length !== PLAYER_COUNT
+          data.names.length < MIN_PLAYERS ||
+          data.names.length > MAX_PLAYERS ||
+          data.names.length !== data.scores.length
         ) {
           return null;
         }
         return {
           names: data.names.map(String),
           scores: data.scores.map((list) => (Array.isArray(list) ? list.map(Number) : [])),
-          active: Number.isInteger(data.active) ? data.active : 0,
+          active: Number.isInteger(data.active) ? Math.min(data.active, data.names.length - 1) : 0,
           input: "",
           edit: null,
           flipView: Boolean(data.flipView),
@@ -699,11 +923,10 @@
     }
 
     function applyViewportFlip() {
-      const shouldFlip = Boolean(session && session.flipView && facingPlayer() === 1);
+      // Gegenüber: ungerade Spielerindizes (1, 3, 5…) drehen
+      const shouldFlip = Boolean(session && session.flipView && facingPlayer() % 2 === 1);
       els.viewport.classList.toggle("flipped", shouldFlip);
-      if (els.menuFlip) {
-        els.menuFlip.setAttribute("aria-checked", session && session.flipView ? "true" : "false");
-      }
+      els.menuFlip.setAttribute("aria-checked", session && session.flipView ? "true" : "false");
     }
 
     function showToast(message) {
@@ -723,6 +946,14 @@
       els.menuBtn.setAttribute("aria-expanded", "false");
     }
 
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
     function totals() {
       return session.scores.map((list) => list.reduce((a, b) => a + b, 0));
     }
@@ -731,9 +962,31 @@
       return Math.max(0, ...session.scores.map((list) => list.length));
     }
 
+    function renderSetupFields() {
+      els.playersList.innerHTML = setupNames
+        .map((name, i) => {
+          const canRemove = setupNames.length > MIN_PLAYERS;
+          return `<div class="field" data-index="${i}">
+            <label for="name-${i}">Spieler ${i + 1}</label>
+            <input id="name-${i}" name="name${i}" maxlength="24" autocomplete="nickname"
+              value="${escapeHtml(name)}" placeholder="Name" required />
+            <button class="btn-icon danger" type="button" data-remove="${i}"
+              aria-label="Spieler ${i + 1} entfernen" ${canRemove ? "" : "disabled"}>−</button>
+          </div>`;
+        })
+        .join("");
+      els.btnAddPlayer.disabled = setupNames.length >= MAX_PLAYERS;
+    }
+
+    function syncSetupNamesFromDom() {
+      const inputs = els.playersList.querySelectorAll("input");
+      setupNames = Array.from(inputs).map((input) => input.value);
+    }
+
     function renderTable() {
       const n = maxRounds();
       const highlight = facingPlayer();
+      const playerCount = session.names.length;
 
       els.thead.innerHTML = `<tr>
         <th class="round">Rd.</th>
@@ -748,7 +1001,7 @@
       if (n === 0) {
         els.tbody.innerHTML = `<tr>
           <td class="round">–</td>
-          ${session.names.map(() => `<td class="score-cell empty">–</td>`).join("")}
+          ${Array.from({ length: playerCount }, () => `<td class="score-cell empty">–</td>`).join("")}
         </tr>`;
       } else {
         const rows = [];
@@ -774,7 +1027,6 @@
         ${sums.map((sum) => `<td>${sum}</td>`).join("")}
       </tr>`;
 
-      // Auto-scroll zur neuesten Runde
       const scroll = els.table.closest(".table-scroll");
       if (scroll) scroll.scrollTop = scroll.scrollHeight;
     }
@@ -788,7 +1040,7 @@
         els.entryLabel.textContent = "Korrektur";
         els.hint.textContent = "Wert ändern und OK tippen – oder im Menü abbrechen.";
       } else {
-        els.topStatus.textContent = "Punktestand";
+        els.topStatus.textContent = `${session.names.length} Spieler`;
         els.topStatus.classList.add("muted");
         els.entryLabel.textContent = "Rundenpunkte";
         els.hint.textContent = "Tippe auf einen Wert, um ihn zu korrigieren.";
@@ -797,7 +1049,6 @@
       const raw = session.input;
       els.entryValue.textContent = raw === "" ? "0" : raw;
       els.entryValue.classList.toggle("placeholder", raw === "");
-
       els.menuCancelEdit.hidden = !editing;
       els.menuUndo.hidden = editing;
       applyViewportFlip();
@@ -808,18 +1059,10 @@
       renderEntry();
     }
 
-    function escapeHtml(text) {
-      return String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-
     function startNewSession(names) {
       session = {
         names: names.map((n) => n.trim()),
-        scores: Array.from({ length: PLAYER_COUNT }, () => []),
+        scores: Array.from({ length: names.length }, () => []),
         active: 0,
         input: "",
         edit: null,
@@ -836,10 +1079,13 @@
         showScreen("play");
         renderAll();
       } else {
+        setupNames = ["", ""];
+        renderSetupFields();
         showScreen("setup");
         els.viewport.classList.remove("flipped");
-        if (els.menuFlip) els.menuFlip.setAttribute("aria-checked", "false");
-        els.name0.focus();
+        els.menuFlip.setAttribute("aria-checked", "false");
+        const first = document.getElementById("name-0");
+        if (first) first.focus();
       }
     }
 
@@ -851,18 +1097,14 @@
       closeMenu();
       showToast(
         session.flipView
-          ? "Ansicht drehen an – bei Spieler 2 um 180°"
+          ? "Ansicht drehen an – gegenüber (Spieler 2, 4, …)"
           : "Ansicht drehen aus"
       );
     }
 
     function appendDigit(digit) {
       if (session.input.length >= 6) return;
-      if (session.input === "0") {
-        session.input = digit;
-      } else {
-        session.input += digit;
-      }
+      session.input = session.input === "0" ? digit : session.input + digit;
       renderEntry();
     }
 
@@ -895,7 +1137,7 @@
       }
 
       session.scores[session.active].push(value);
-      session.active = (session.active + 1) % PLAYER_COUNT;
+      session.active = (session.active + 1) % session.names.length;
       session.input = "";
       saveSession();
       renderAll();
@@ -919,26 +1161,12 @@
     function undoLast() {
       closeMenu();
       if (session.edit) return;
-
-      // Letzten Eintrag des vorherigen Spielers entfernen und zu ihm zurück
-      const prev = (session.active - 1 + PLAYER_COUNT) % PLAYER_COUNT;
-      if (session.scores[prev].length === 0) {
-        // vielleicht hat aktiver Spieler schon Einträge und wir sind am Anfang?
-        // Suche den Spieler mit dem chronologisch letzten Eintrag:
-        // Da Spieler strikt abwechseln, ist der letzte Eintrag immer beim prev,
-        // außer niemand hat noch Punkte.
-        const any = session.scores.some((list) => list.length > 0);
-        if (!any) {
-          showToast("Nichts zum Löschen");
-          return;
-        }
-      }
-
+      const count = session.names.length;
+      const prev = (session.active - 1 + count) % count;
       if (session.scores[prev].length === 0) {
         showToast("Nichts zum Löschen");
         return;
       }
-
       session.scores[prev].pop();
       session.active = prev;
       session.input = "";
@@ -950,24 +1178,47 @@
     function resetToSetup() {
       session = null;
       saveSession();
-      els.form.reset();
+      setupNames = ["", ""];
+      renderSetupFields();
       showScreen("setup");
       els.viewport.classList.remove("flipped");
-      if (els.menuFlip) els.menuFlip.setAttribute("aria-checked", "false");
+      els.menuFlip.setAttribute("aria-checked", "false");
       els.overlay.classList.remove("open");
       closeMenu();
-      els.name0.focus();
+      const first = document.getElementById("name-0");
+      if (first) first.focus();
     }
 
-    // Events
+    // Setup interactions
+    els.btnAddPlayer.addEventListener("click", () => {
+      syncSetupNamesFromDom();
+      if (setupNames.length >= MAX_PLAYERS) return;
+      setupNames.push("");
+      renderSetupFields();
+      const last = document.getElementById(`name-${setupNames.length - 1}`);
+      if (last) last.focus();
+    });
+
+    els.playersList.addEventListener("click", (event) => {
+      const btn = event.target.closest("button[data-remove]");
+      if (!btn || btn.disabled) return;
+      syncSetupNamesFromDom();
+      const index = Number(btn.dataset.remove);
+      if (setupNames.length <= MIN_PLAYERS) return;
+      setupNames.splice(index, 1);
+      renderSetupFields();
+    });
+
     els.form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const names = [els.name0.value, els.name1.value];
-      if (names.some((n) => !n.trim())) {
-        showToast("Bitte beide Namen eingeben");
+      syncSetupNamesFromDom();
+      const names = setupNames.map((n) => n.trim());
+      if (names.some((n) => !n)) {
+        showToast("Bitte alle Namen eingeben");
         return;
       }
-      if (names[0].trim().toLowerCase() === names[1].trim().toLowerCase()) {
+      const lower = names.map((n) => n.toLowerCase());
+      if (new Set(lower).size !== lower.length) {
         showToast("Bitte unterschiedliche Namen");
         return;
       }
@@ -1000,9 +1251,7 @@
     });
 
     document.addEventListener("click", (event) => {
-      if (!els.menu.contains(event.target) && event.target !== els.menuBtn) {
-        closeMenu();
-      }
+      if (!els.menu.contains(event.target) && event.target !== els.menuBtn) closeMenu();
     });
 
     els.menuFlip.addEventListener("click", toggleFlipView);
