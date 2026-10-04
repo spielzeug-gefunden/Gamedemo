@@ -13,8 +13,9 @@ Mobiler **Punktezähler** für zwei Spieler (nur Summen pro Runde, kein Spielabl
 - URL (nach Deploy): `https://spielzeug-gefunden.github.io/Gamedemo/punkte/`
 - Lokal: [`punkte/index.html`](./punkte/index.html)
 - Session wird per **Cookie** auf dem Gerät gespeichert (Namen, Rundenpunkte, aktiver Spieler).
-- Layout: aktueller Spieler + Menü oben, Punktetabelle (obere Hälfte), Ziffernblock 0–9 + OK (untere Hälfte).
+- Layout: Menü oben, Punktetabelle (obere Hälfte, aktiver Name hervorgehoben), Ziffernblock 0–9 + OK (untere Hälfte).
 - Tippen auf einen Tabellenwert erlaubt Korrekturen.
+- Menüoption **Ansicht drehen**: bei Spieler 2 wird die Ansicht um 180° gedreht (gegenüber sitzen).
 
 ### Würfelspiel (Demo)
 
