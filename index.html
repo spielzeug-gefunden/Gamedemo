@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#0a2a28" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -50,6 +50,7 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       overscroll-behavior: none;
+      touch-action: manipulation;
     }
 
     body {
@@ -58,6 +59,10 @@
       overflow: hidden;
       position: fixed;
       inset: 0;
+    }
+
+    button, a, .keys, .score-cell {
+      touch-action: manipulation;
     }
 
     .atmosphere {
@@ -514,9 +519,21 @@
     }
 
     .scores td.score-cell.editing {
-      background: rgba(217, 177, 90, 0.28);
+      background: rgba(217, 177, 90, 0.34);
       outline: 2px solid var(--accent);
       outline-offset: -2px;
+      color: #fff8e6;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      animation: cell-pulse 1.4s ease-in-out infinite;
+    }
+
+    .scores td.score-cell.editing.empty {
+      color: rgba(255, 248, 230, 0.45);
+    }
+
+    @keyframes cell-pulse {
+      0%, 100% { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 0 rgba(217, 177, 90, 0.0); }
+      50% { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 0 0 3px rgba(217, 177, 90, 0.18); }
     }
 
     .scores tfoot td {
@@ -544,33 +561,7 @@
       background: rgba(8, 24, 26, 0.2);
     }
 
-    .keypad-panel { padding: 12px; gap: 10px; }
-
-    .entry {
-      flex: 0 0 auto;
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 2px 4px;
-    }
-
-    .entry-label {
-      font-size: 0.78rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-    }
-
-    .entry-value {
-      font-family: "IBM Plex Mono", ui-monospace, monospace;
-      font-size: clamp(1.8rem, 8vw, 2.4rem);
-      font-weight: 600;
-      min-height: 1.2em;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.15);
-    }
-
-    .entry-value.placeholder { opacity: 0.35; }
+    .keypad-panel { padding: 12px; gap: 0; }
 
     .keys {
       flex: 1;
@@ -584,23 +575,24 @@
     .keys button {
       border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 16px;
-      background:
-        linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)),
-        rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.1);
       color: var(--ink);
       font-family: "IBM Plex Mono", ui-monospace, monospace;
       font-size: 1.4rem;
       font-weight: 600;
       cursor: pointer;
       min-height: 0;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     .keys button:active {
-      transform: scale(0.98);
-      background: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .keys button.pressed {
+      background: rgba(255, 255, 255, 0.26);
     }
 
     .keys .key-ok {
@@ -699,6 +691,15 @@
       background: linear-gradient(145deg, #ef7d76, #c24a44);
       color: white;
     }
+
+    .dialog ol {
+      margin: 0 0 18px;
+      padding-left: 1.2rem;
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .dialog ol li { margin-bottom: 6px; }
   </style>
 </head>
 <body>
@@ -769,6 +770,7 @@
                 Ansicht drehen <span class="check" aria-hidden="true">✓</span>
               </button>
               <button type="button" role="menuitem" id="menu-fullscreen">Vollbild</button>
+              <button type="button" role="menuitem" id="menu-homescreen">Zu Homebildschirm hinzufügen</button>
               <button type="button" role="menuitem" id="menu-undo">Letzten Eintrag löschen</button>
               <button type="button" role="menuitem" id="menu-cancel-edit" hidden>Bearbeiten abbrechen</button>
               <button type="button" role="menuitem" class="danger" id="menu-new">Neues Spiel…</button>
@@ -789,10 +791,6 @@
           </section>
 
           <section class="glass keypad-panel" aria-label="Zifferneingabe">
-            <div class="entry">
-              <span class="entry-label" id="entry-label">Rundenpunkte</span>
-              <span class="entry-value placeholder" id="entry-value">0</span>
-            </div>
             <div class="keys" id="keys">
               <button type="button" data-key="7">7</button>
               <button type="button" data-key="8">8</button>
@@ -824,6 +822,20 @@
         </div>
       </div>
     </div>
+
+    <div class="overlay" id="homescreen-overlay" role="dialog" aria-modal="true" aria-labelledby="homescreen-title">
+      <div class="glass dialog">
+        <h2 id="homescreen-title">Zum Homebildschirm</h2>
+        <p id="homescreen-text">So fügst du Punktestand hinzu:</p>
+        <ol id="homescreen-steps">
+          <li>Browser-Menü öffnen (⋯ oder Teilen)</li>
+          <li>„Zum Home-Bildschirm“ / „Zum Startbildschirm“ wählen</li>
+        </ol>
+        <div class="dialog-actions" style="grid-template-columns: 1fr">
+          <button type="button" class="btn-primary" id="homescreen-ok">Verstanden</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -846,6 +858,7 @@
       menu: document.getElementById("menu"),
       menuFlip: document.getElementById("menu-flip"),
       menuFullscreen: document.getElementById("menu-fullscreen"),
+      menuHomescreen: document.getElementById("menu-homescreen"),
       menuUndo: document.getElementById("menu-undo"),
       menuCancelEdit: document.getElementById("menu-cancel-edit"),
       menuNew: document.getElementById("menu-new"),
@@ -854,14 +867,19 @@
       tbody: document.querySelector("#score-table tbody"),
       tfoot: document.querySelector("#score-table tfoot"),
       hint: document.getElementById("table-hint"),
-      entryLabel: document.getElementById("entry-label"),
-      entryValue: document.getElementById("entry-value"),
       keys: document.getElementById("keys"),
       toast: document.getElementById("toast"),
       overlay: document.getElementById("confirm-overlay"),
       confirmCancel: document.getElementById("confirm-cancel"),
       confirmOk: document.getElementById("confirm-ok"),
+      homescreenOverlay: document.getElementById("homescreen-overlay"),
+      homescreenText: document.getElementById("homescreen-text"),
+      homescreenSteps: document.getElementById("homescreen-steps"),
+      homescreenOk: document.getElementById("homescreen-ok"),
     };
+
+    /** @type {BeforeInstallPromptEvent | null} */
+    let deferredInstallPrompt = null;
 
     /** @type {Session | null} */
     let session = null;
@@ -997,10 +1015,45 @@
       setupNames = Array.from(inputs).map((input) => input.value);
     }
 
+    function draftRoundIndex() {
+      if (!session || session.edit) return null;
+      return session.scores[session.active].length;
+    }
+
+    function cellDisplay(player, round) {
+      if (session.edit && session.edit.player === player && session.edit.round === round) {
+        return {
+          value: session.input === "" ? "·" : session.input,
+          editing: true,
+          empty: session.input === "",
+          interactive: true,
+        };
+      }
+      const draft = draftRoundIndex();
+      if (draft !== null && player === session.active && round === draft) {
+        return {
+          value: session.input === "" ? "·" : session.input,
+          editing: true,
+          empty: session.input === "",
+          interactive: false,
+        };
+      }
+      if (round < session.scores[player].length) {
+        return {
+          value: String(session.scores[player][round]),
+          editing: false,
+          empty: false,
+          interactive: true,
+        };
+      }
+      return { value: "–", editing: false, empty: true, interactive: false };
+    }
+
     function renderTable() {
-      const n = maxRounds();
       const highlight = facingPlayer();
       const playerCount = session.names.length;
+      const draft = draftRoundIndex();
+      const n = Math.max(maxRounds(), draft !== null ? draft + 1 : 0, 1);
 
       els.thead.innerHTML = `<tr>
         <th class="round">Rd.</th>
@@ -1012,28 +1065,28 @@
           .join("")}
       </tr>`;
 
-      if (n === 0) {
-        els.tbody.innerHTML = `<tr>
-          <td class="round">–</td>
-          ${Array.from({ length: playerCount }, () => `<td class="score-cell empty">–</td>`).join("")}
-        </tr>`;
-      } else {
-        const rows = [];
-        for (let r = 0; r < n; r++) {
-          const cells = session.scores.map((list, p) => {
-            const has = r < list.length;
-            const value = has ? String(list[r]) : "–";
-            const editing =
-              session.edit && session.edit.player === p && session.edit.round === r;
-            const classes = ["score-cell", has ? "" : "empty", editing ? "editing" : ""]
-              .filter(Boolean)
-              .join(" ");
-            return `<td class="${classes}" data-player="${p}" data-round="${r}">${value}</td>`;
-          });
-          rows.push(`<tr><td class="round">${r + 1}</td>${cells.join("")}</tr>`);
+      const rows = [];
+      for (let r = 0; r < n; r++) {
+        const cells = [];
+        for (let p = 0; p < playerCount; p++) {
+          const cell = cellDisplay(p, r);
+          const classes = [
+            "score-cell",
+            cell.empty ? "empty" : "",
+            cell.editing ? "editing" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          const attrs = cell.interactive
+            ? ` data-player="${p}" data-round="${r}"`
+            : cell.editing
+              ? ` data-draft="1" data-player="${p}" data-round="${r}"`
+              : "";
+          cells.push(`<td class="${classes}"${attrs}>${escapeHtml(cell.value)}</td>`);
         }
-        els.tbody.innerHTML = rows.join("");
+        rows.push(`<tr><td class="round">${r + 1}</td>${cells.join("")}</tr>`);
       }
+      els.tbody.innerHTML = rows.join("");
 
       const sums = totals();
       els.tfoot.innerHTML = `<tr>
@@ -1045,24 +1098,24 @@
       if (scroll) scroll.scrollTop = scroll.scrollHeight;
     }
 
-    function renderEntry() {
-      const editing = Boolean(session.edit);
-      if (editing) {
-        const { round } = session.edit;
-        els.topStatus.textContent = `Korrektur · Runde ${round + 1}`;
-        els.topStatus.classList.remove("muted");
-        els.entryLabel.textContent = "Korrektur";
-        els.hint.textContent = "Wert ändern und OK tippen – oder im Menü abbrechen.";
-      } else {
-        els.topStatus.textContent = `${session.names.length} Spieler`;
-        els.topStatus.classList.add("muted");
-        els.entryLabel.textContent = "Rundenpunkte";
-        els.hint.textContent = "Tippe auf einen Wert, um ihn zu korrigieren.";
+    function updateEditingCell() {
+      const cell = els.tbody.querySelector("td.score-cell.editing");
+      if (!cell) {
+        renderTable();
+        return;
       }
+      const empty = session.input === "";
+      cell.textContent = empty ? "·" : session.input;
+      cell.classList.toggle("empty", empty);
+    }
 
-      const raw = session.input;
-      els.entryValue.textContent = raw === "" ? "0" : raw;
-      els.entryValue.classList.toggle("placeholder", raw === "");
+    function renderChrome() {
+      const editing = Boolean(session.edit);
+      els.topStatus.textContent = "Punktestand";
+      els.topStatus.classList.add("muted");
+      els.hint.textContent = editing
+        ? "Zelle ändern und OK tippen – oder im Menü abbrechen."
+        : "Tippe auf einen Wert, um ihn zu korrigieren.";
       els.menuCancelEdit.hidden = !editing;
       els.menuUndo.hidden = editing;
       applyViewportFlip();
@@ -1070,7 +1123,7 @@
 
     function renderAll() {
       renderTable();
-      renderEntry();
+      renderChrome();
     }
 
     function startNewSession(names) {
@@ -1119,12 +1172,12 @@
     function appendDigit(digit) {
       if (session.input.length >= 6) return;
       session.input = session.input === "0" ? digit : session.input + digit;
-      renderEntry();
+      updateEditingCell();
     }
 
     function deleteDigit() {
       session.input = session.input.slice(0, -1);
-      renderEntry();
+      updateEditingCell();
     }
 
     function commitOk() {
@@ -1239,18 +1292,41 @@
       startNewSession(names);
     });
 
-    els.keys.addEventListener("click", (event) => {
-      const btn = event.target.closest("button[data-key]");
-      if (!btn || !session) return;
-      const key = btn.dataset.key;
+    function handleKey(key) {
+      if (!session) return;
       if (key === "ok") commitOk();
       else if (key === "del") deleteDigit();
       else appendDigit(key);
+    }
+
+    // Sofortige Tastenreaktion (ohne 300ms click-Delay), ohne Doppel-Tap-Zoom
+    els.keys.addEventListener(
+      "pointerdown",
+      (event) => {
+        const btn = event.target.closest("button[data-key]");
+        if (!btn || !session) return;
+        event.preventDefault();
+        btn.classList.add("pressed");
+        handleKey(btn.dataset.key);
+      },
+      { passive: false }
+    );
+    els.keys.addEventListener("pointerup", (event) => {
+      const btn = event.target.closest("button[data-key]");
+      if (btn) btn.classList.remove("pressed");
+    });
+    els.keys.addEventListener("pointercancel", (event) => {
+      const btn = event.target.closest("button[data-key]");
+      if (btn) btn.classList.remove("pressed");
+    });
+    els.keys.addEventListener("pointerleave", (event) => {
+      const btn = event.target.closest("button[data-key]");
+      if (btn) btn.classList.remove("pressed");
     });
 
-    els.tbody.addEventListener("click", (event) => {
+    els.tbody.addEventListener("pointerup", (event) => {
       const cell = event.target.closest("td.score-cell[data-player]");
-      if (!cell || !session) return;
+      if (!cell || !session || cell.dataset.draft === "1") return;
       const player = Number(cell.dataset.player);
       const round = Number(cell.dataset.round);
       if (round >= session.scores[player].length) return;
@@ -1309,8 +1385,54 @@
       else await enterFullscreen();
     }
 
+    function isIos() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function isStandalone() {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        Boolean(window.navigator.standalone)
+      );
+    }
+
+    async function addToHomescreen() {
+      closeMenu();
+      if (isStandalone()) {
+        showToast("Bereits auf dem Homebildschirm");
+        return;
+      }
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        try {
+          await deferredInstallPrompt.userChoice;
+        } catch {
+          /* ignore */
+        }
+        deferredInstallPrompt = null;
+        return;
+      }
+
+      if (isIos()) {
+        els.homescreenText.textContent = "Auf dem iPhone / iPad:";
+        els.homescreenSteps.innerHTML = `
+          <li>Tippe unten auf <strong>Teilen</strong></li>
+          <li>Wähle <strong>Zum Home-Bildschirm</strong></li>
+          <li>Bestätige mit <strong>Hinzufügen</strong></li>`;
+      } else {
+        els.homescreenText.textContent = "Im Browser-Menü:";
+        els.homescreenSteps.innerHTML = `
+          <li>Menü <strong>⋯</strong> öffnen</li>
+          <li><strong>App installieren</strong> oder <strong>Zum Startbildschirm</strong> wählen</li>`;
+      }
+      els.homescreenOverlay.classList.add("open");
+    }
+
     els.menuFlip.addEventListener("click", toggleFlipView);
     els.menuFullscreen.addEventListener("click", toggleFullscreen);
+    els.menuHomescreen.addEventListener("click", addToHomescreen);
     els.menuUndo.addEventListener("click", undoLast);
     els.menuCancelEdit.addEventListener("click", cancelEdit);
     els.menuNew.addEventListener("click", () => {
@@ -1319,25 +1441,23 @@
     });
     els.confirmCancel.addEventListener("click", () => els.overlay.classList.remove("open"));
     els.confirmOk.addEventListener("click", resetToSetup);
+    els.homescreenOk.addEventListener("click", () => els.homescreenOverlay.classList.remove("open"));
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+    });
 
     document.addEventListener("fullscreenchange", updateFullscreenMenuLabel);
     document.addEventListener("webkitfullscreenchange", updateFullscreenMenuLabel);
 
-    // Beim ersten Tippen Vollbild anfordern (Browser erlauben das nur nach Gesture)
-    let fullscreenArmed = true;
-    function armFullscreenOnce(event) {
-      if (!fullscreenArmed) return;
-      if (event.target.closest("input, textarea, button[type='submit']")) return;
-      fullscreenArmed = false;
-      enterFullscreen();
-    }
-    document.addEventListener("pointerdown", armFullscreenOnce, { passive: true });
+    // Pinch-Zoom (iOS Safari) unterbinden; Doppel-Tap via touch-action/viewport
+    document.addEventListener("gesturestart", (event) => event.preventDefault());
 
-    // Setup: nach Start ebenfalls Vollbild
+    // Beim Spielstart Vollbild anfordern
     els.form.addEventListener(
       "submit",
       () => {
-        fullscreenArmed = false;
         enterFullscreen();
       },
       { capture: true }
