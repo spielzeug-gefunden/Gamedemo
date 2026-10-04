@@ -2,6 +2,8 @@
 
 Kleine Web-Apps rund um Würfelspiele – rein statisch, ohne Build-Schritt.
 
+Lizenz: [MIT](./LICENSE)
+
 ## Apps
 
 ### Punktestand
