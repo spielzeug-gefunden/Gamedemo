@@ -122,17 +122,24 @@ button, a, .keys, .score-cell {
 }
 
 /* Setup */
-.setup-card {
-  margin: auto 0;
-  padding: 26px 20px 18px;
-  color: var(--ink);
-  max-height: calc(100dvh - 48px - var(--safe-top) - var(--safe-bottom));
-  display: flex;
-  flex-direction: column;
+#screen-setup {
+  justify-content: center;
   min-height: 0;
 }
 
+.setup-card {
+  margin: 0;
+  padding: 26px 20px 18px;
+  color: var(--ink);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
 .brand {
+  flex: 0 0 auto;
   font-size: 0.78rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -142,6 +149,7 @@ button, a, .keys, .score-cell {
 }
 
 .setup-card h1 {
+  flex: 0 0 auto;
   margin: 0 0 8px;
   font-family: "Fraunces", Georgia, serif;
   font-size: 2.1rem;
@@ -151,19 +159,28 @@ button, a, .keys, .score-cell {
 }
 
 .setup-card .lede {
+  flex: 0 0 auto;
   margin: 0 0 18px;
   color: var(--ink-soft);
   line-height: 1.45;
   font-size: 0.95rem;
 }
 
+.setup-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .setup-scroll {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   margin: 0 -4px;
-  padding: 0 4px 8px;
+  padding: 0 4px 12px;
 }
 
 .players-list { display: grid; gap: 10px; }
@@ -223,12 +240,19 @@ button, a, .keys, .score-cell {
 .btn-icon.danger { color: #ffb4ae; }
 
 .setup-actions {
+  flex: 0 0 auto;
   display: grid;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(20, 48, 48, 0.92);
 }
 
 .btn-add {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
   border: 1px dashed rgba(255, 255, 255, 0.35);
   border-radius: 14px;
   padding: 12px;
