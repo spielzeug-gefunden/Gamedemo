@@ -1,30 +1,29 @@
 # Gamedemo
 
-Ein kleines Würfelspiel (Variante von „Pig") als reine statische Webseite.
+Kleine Web-Apps rund um Würfelspiele – rein statisch, ohne Build-Schritt.
 
-## Spielen
+## Apps
 
-Öffne die [`index.html`](./index.html) direkt im Browser – es sind keine
-Abhängigkeiten oder Build-Schritte nötig.
+### Punktestand
 
-### Spielregeln
+Mobiler **Punktezähler** für zwei Spieler (nur Summen pro Runde, kein Spielablauf).
 
-- Du spielst gegen den Computer. Wer zuerst **50 Punkte** erreicht, gewinnt.
-- Beim **Würfeln** werden die Augen zu deinen Rundenpunkten addiert.
-- Mit **Halten** sicherst du die Rundenpunkte deinem Gesamtkonto und übergibst.
-- Würfelst du eine **1**, verfallen die Rundenpunkte und der Gegner ist dran.
+- URL (nach Deploy): `https://spielzeug-gefunden.github.io/Gamedemo/punkte/`
+- Lokal: [`punkte/index.html`](./punkte/index.html)
+- Session wird per **Cookie** auf dem Gerät gespeichert (Namen, Rundenpunkte, aktiver Spieler).
+- Layout: aktueller Spieler + Menü oben, Punktetabelle (obere Hälfte), Ziffernblock 0–9 + OK (untere Hälfte).
+- Tippen auf einen Tabellenwert erlaubt Korrekturen.
+
+### Würfelspiel (Demo)
+
+Einfaches Würfelspiel (Variante von „Pig“) im Repository-Root.
+
+- URL: `https://spielzeug-gefunden.github.io/Gamedemo/`
+- Datei: [`index.html`](./index.html)
 
 ## GitHub Pages
 
-Das Projekt ist für GitHub Pages vorbereitet:
-
-- [`index.html`](./index.html) liegt im Repository-Root.
 - [`.nojekyll`](./.nojekyll) deaktiviert die Jekyll-Verarbeitung.
-- Der Workflow [`.github/workflows/pages.yml`](./.github/workflows/pages.yml)
-  deployt die Seite automatisch bei jedem Push auf `main`.
+- Workflow [`.github/workflows/pages.yml`](./.github/workflows/pages.yml) deployt bei jedem Push auf `main`.
 
-### Einmalige Aktivierung
-
-In den Repository-Einstellungen unter **Settings → Pages** als
-**Source** den Eintrag **GitHub Actions** auswählen. Danach wird die Seite
-bei jedem Push auf `main` automatisch veröffentlicht.
+In **Settings → Pages** als **Source** den Eintrag **GitHub Actions** wählen.
