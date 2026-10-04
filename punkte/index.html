@@ -26,7 +26,7 @@
       --danger: #c23b3b;
       --shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
       --radius: 18px;
-      --header-h: 64px;
+      --header-h: 52px;
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
@@ -47,8 +47,21 @@
 
     body {
       min-height: 100dvh;
+      overflow: hidden;
+    }
+
+    .viewport {
+      position: relative;
+      width: 100%;
+      height: 100dvh;
       display: flex;
       justify-content: center;
+      transition: transform 0.35s ease;
+      transform-origin: center center;
+    }
+
+    .viewport.flipped {
+      transform: rotate(180deg);
     }
 
     .app {
@@ -62,6 +75,13 @@
         14px
         calc(12px + var(--safe-bottom));
       gap: 12px;
+    }
+
+    .viewport.flipped .app {
+      padding:
+        calc(12px + var(--safe-bottom))
+        14px
+        calc(12px + var(--safe-top));
     }
 
     .screen { display: none; flex: 1; min-height: 0; flex-direction: column; gap: 12px; }
@@ -150,28 +170,18 @@
       padding: 0 4px 0 8px;
     }
 
-    .active-player {
+    .top-status {
       min-width: 0;
-    }
-
-    .active-label {
-      display: block;
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      opacity: 0.75;
-      margin-bottom: 2px;
-    }
-
-    .active-name {
-      display: block;
-      font-size: 1.55rem;
-      font-weight: 700;
-      line-height: 1.1;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      opacity: 0.9;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    .top-status.muted { opacity: 0.65; font-weight: 500; }
 
     .menu-wrap { position: relative; }
 
@@ -219,6 +229,15 @@
 
     .menu button:active { background: rgba(11, 61, 46, 0.08); }
     .menu button.danger { color: var(--danger); }
+
+    .menu button .check {
+      float: right;
+      color: var(--felt);
+      font-weight: 700;
+      opacity: 0;
+    }
+
+    .menu button[aria-checked="true"] .check { opacity: 1; }
 
     /* Main play layout */
     .play-body {
@@ -274,6 +293,16 @@
       z-index: 1;
     }
 
+    .scores th.player-name {
+      transition: background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+    }
+
+    .scores th.player-name.active {
+      background: rgba(232, 163, 23, 0.38);
+      color: var(--accent-ink);
+      box-shadow: inset 0 -3px 0 var(--accent);
+    }
+
     .scores th.round,
     .scores td.round {
       width: 3.2rem;
@@ -300,10 +329,6 @@
       background: rgba(232, 163, 23, 0.28);
       outline: 2px solid var(--accent);
       outline-offset: -2px;
-    }
-
-    .scores td.score-cell.player-active-col {
-      background: rgba(11, 61, 46, 0.06);
     }
 
     .scores tfoot td {
@@ -396,7 +421,7 @@
     }
 
     .toast {
-      position: fixed;
+      position: absolute;
       left: 50%;
       bottom: calc(18px + var(--safe-bottom));
       transform: translateX(-50%) translateY(120%);
@@ -410,13 +435,18 @@
       z-index: 50;
       max-width: calc(100% - 32px);
       text-align: center;
+      pointer-events: none;
     }
 
     .toast.show { transform: translateX(-50%) translateY(0); }
 
+    .viewport.flipped .toast {
+      bottom: calc(18px + var(--safe-top));
+    }
+
     .overlay {
       display: none;
-      position: fixed;
+      position: absolute;
       inset: 0;
       background: rgba(0, 0, 0, 0.45);
       z-index: 30;
@@ -474,89 +504,91 @@
   </style>
 </head>
 <body>
-  <div class="app">
-    <!-- Setup -->
-    <section class="screen" id="screen-setup" aria-label="Neues Spiel">
-      <div class="setup-card">
-        <p class="brand">Punktestand</p>
-        <h1>Neues Spiel</h1>
-        <p>Namen eingeben – die Session bleibt auf diesem Gerät gespeichert.</p>
-        <form id="setup-form">
-          <div class="field">
-            <label for="name-0">Spieler 1</label>
-            <input id="name-0" name="name0" maxlength="24" autocomplete="nickname" required />
-          </div>
-          <div class="field">
-            <label for="name-1">Spieler 2</label>
-            <input id="name-1" name="name1" maxlength="24" autocomplete="nickname" required />
-          </div>
-          <button class="btn-primary" type="submit">Spiel starten</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- Play -->
-    <section class="screen" id="screen-play" aria-label="Punktestand">
-      <header class="topbar">
-        <div class="active-player">
-          <span class="active-label" id="active-label">Am Zug</span>
-          <span class="active-name" id="active-name">–</span>
+  <div class="viewport" id="viewport">
+    <div class="app">
+      <!-- Setup -->
+      <section class="screen" id="screen-setup" aria-label="Neues Spiel">
+        <div class="setup-card">
+          <p class="brand">Punktestand</p>
+          <h1>Neues Spiel</h1>
+          <p>Namen eingeben – die Session bleibt auf diesem Gerät gespeichert.</p>
+          <form id="setup-form">
+            <div class="field">
+              <label for="name-0">Spieler 1</label>
+              <input id="name-0" name="name0" maxlength="24" autocomplete="nickname" required />
+            </div>
+            <div class="field">
+              <label for="name-1">Spieler 2</label>
+              <input id="name-1" name="name1" maxlength="24" autocomplete="nickname" required />
+            </div>
+            <button class="btn-primary" type="submit">Spiel starten</button>
+          </form>
         </div>
-        <div class="menu-wrap">
-          <button class="menu-btn" id="menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menü">⋯</button>
-          <div class="menu" id="menu" role="menu">
-            <button type="button" role="menuitem" id="menu-undo">Letzten Eintrag löschen</button>
-            <button type="button" role="menuitem" id="menu-cancel-edit" hidden>Bearbeiten abbrechen</button>
-            <button type="button" role="menuitem" class="danger" id="menu-new">Neues Spiel…</button>
+      </section>
+
+      <!-- Play -->
+      <section class="screen" id="screen-play" aria-label="Punktestand">
+        <header class="topbar">
+          <div class="top-status muted" id="top-status">Punktestand</div>
+          <div class="menu-wrap">
+            <button class="menu-btn" id="menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menü">⋯</button>
+            <div class="menu" id="menu" role="menu">
+              <button type="button" role="menuitemcheckbox" id="menu-flip" aria-checked="false">
+                Ansicht drehen <span class="check" aria-hidden="true">✓</span>
+              </button>
+              <button type="button" role="menuitem" id="menu-undo">Letzten Eintrag löschen</button>
+              <button type="button" role="menuitem" id="menu-cancel-edit" hidden>Bearbeiten abbrechen</button>
+              <button type="button" role="menuitem" class="danger" id="menu-new">Neues Spiel…</button>
+            </div>
           </div>
+        </header>
+
+        <div class="play-body">
+          <section class="table-panel" aria-label="Punktetabelle">
+            <div class="table-scroll">
+              <table class="scores" id="score-table">
+                <thead></thead>
+                <tbody></tbody>
+                <tfoot></tfoot>
+              </table>
+            </div>
+            <div class="hint" id="table-hint">Tippe auf einen Wert, um ihn zu korrigieren.</div>
+          </section>
+
+          <section class="keypad-panel" aria-label="Zifferneingabe">
+            <div class="entry">
+              <span class="entry-label" id="entry-label">Rundenpunkte</span>
+              <span class="entry-value placeholder" id="entry-value">0</span>
+            </div>
+            <div class="keys" id="keys">
+              <button type="button" data-key="7">7</button>
+              <button type="button" data-key="8">8</button>
+              <button type="button" data-key="9">9</button>
+              <button type="button" data-key="4">4</button>
+              <button type="button" data-key="5">5</button>
+              <button type="button" data-key="6">6</button>
+              <button type="button" data-key="1">1</button>
+              <button type="button" data-key="2">2</button>
+              <button type="button" data-key="3">3</button>
+              <button type="button" class="key-del" data-key="del" aria-label="Löschen">⌫</button>
+              <button type="button" data-key="0">0</button>
+              <button type="button" class="key-ok" data-key="ok">OK</button>
+            </div>
+          </section>
         </div>
-      </header>
+      </section>
+    </div>
 
-      <div class="play-body">
-        <section class="table-panel" aria-label="Punktetabelle">
-          <div class="table-scroll">
-            <table class="scores" id="score-table">
-              <thead></thead>
-              <tbody></tbody>
-              <tfoot></tfoot>
-            </table>
-          </div>
-          <div class="hint" id="table-hint">Tippe auf einen Wert, um ihn zu korrigieren.</div>
-        </section>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-        <section class="keypad-panel" aria-label="Zifferneingabe">
-          <div class="entry">
-            <span class="entry-label" id="entry-label">Rundenpunkte</span>
-            <span class="entry-value placeholder" id="entry-value">0</span>
-          </div>
-          <div class="keys" id="keys">
-            <button type="button" data-key="7">7</button>
-            <button type="button" data-key="8">8</button>
-            <button type="button" data-key="9">9</button>
-            <button type="button" data-key="4">4</button>
-            <button type="button" data-key="5">5</button>
-            <button type="button" data-key="6">6</button>
-            <button type="button" data-key="1">1</button>
-            <button type="button" data-key="2">2</button>
-            <button type="button" data-key="3">3</button>
-            <button type="button" class="key-del" data-key="del" aria-label="Löschen">⌫</button>
-            <button type="button" data-key="0">0</button>
-            <button type="button" class="key-ok" data-key="ok">OK</button>
-          </div>
-        </section>
-      </div>
-    </section>
-  </div>
-
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <div class="overlay" id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-    <div class="dialog">
-      <h2 id="confirm-title">Neues Spiel?</h2>
-      <p>Die aktuelle Session auf diesem Gerät wird gelöscht.</p>
-      <div class="dialog-actions">
-        <button type="button" class="btn-ghost" id="confirm-cancel">Abbrechen</button>
-        <button type="button" class="btn-danger" id="confirm-ok">Löschen</button>
+    <div class="overlay" id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="dialog">
+        <h2 id="confirm-title">Neues Spiel?</h2>
+        <p>Die aktuelle Session auf diesem Gerät wird gelöscht.</p>
+        <div class="dialog-actions">
+          <button type="button" class="btn-ghost" id="confirm-cancel">Abbrechen</button>
+          <button type="button" class="btn-danger" id="confirm-ok">Löschen</button>
+        </div>
       </div>
     </div>
   </div>
@@ -566,18 +598,19 @@
     const COOKIE_DAYS = 30;
     const PLAYER_COUNT = 2;
 
-    /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number } }} Session */
+    /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean }} Session */
 
     const els = {
+      viewport: document.getElementById("viewport"),
       setup: document.getElementById("screen-setup"),
       play: document.getElementById("screen-play"),
       form: document.getElementById("setup-form"),
       name0: document.getElementById("name-0"),
       name1: document.getElementById("name-1"),
-      activeLabel: document.getElementById("active-label"),
-      activeName: document.getElementById("active-name"),
+      topStatus: document.getElementById("top-status"),
       menuBtn: document.getElementById("menu-btn"),
       menu: document.getElementById("menu"),
+      menuFlip: document.getElementById("menu-flip"),
       menuUndo: document.getElementById("menu-undo"),
       menuCancelEdit: document.getElementById("menu-cancel-edit"),
       menuNew: document.getElementById("menu-new"),
@@ -628,8 +661,7 @@
         names: session.names,
         scores: session.scores,
         active: session.active,
-        // input/edit nicht persistent nötig – frisch starten beim Reload ok,
-        // aber wir speichern active + scores; input resetten
+        flipView: Boolean(session.flipView),
       };
       setCookie(COOKIE_NAME, JSON.stringify(payload), COOKIE_DAYS);
     }
@@ -653,9 +685,24 @@
           active: Number.isInteger(data.active) ? data.active : 0,
           input: "",
           edit: null,
+          flipView: Boolean(data.flipView),
         };
       } catch {
         return null;
+      }
+    }
+
+    function facingPlayer() {
+      if (!session) return 0;
+      if (session.edit) return session.edit.player;
+      return session.active;
+    }
+
+    function applyViewportFlip() {
+      const shouldFlip = Boolean(session && session.flipView && facingPlayer() === 1);
+      els.viewport.classList.toggle("flipped", shouldFlip);
+      if (els.menuFlip) {
+        els.menuFlip.setAttribute("aria-checked", session && session.flipView ? "true" : "false");
       }
     }
 
@@ -686,11 +733,16 @@
 
     function renderTable() {
       const n = maxRounds();
-      const active = session.active;
+      const highlight = facingPlayer();
 
       els.thead.innerHTML = `<tr>
         <th class="round">Rd.</th>
-        ${session.names.map((name, i) => `<th>${escapeHtml(name)}</th>`).join("")}
+        ${session.names
+          .map(
+            (name, i) =>
+              `<th class="player-name${i === highlight ? " active" : ""}">${escapeHtml(name)}</th>`
+          )
+          .join("")}
       </tr>`;
 
       if (n === 0) {
@@ -706,12 +758,7 @@
             const value = has ? String(list[r]) : "–";
             const editing =
               session.edit && session.edit.player === p && session.edit.round === r;
-            const classes = [
-              "score-cell",
-              has ? "" : "empty",
-              editing ? "editing" : "",
-              !session.edit && p === active ? "player-active-col" : "",
-            ]
+            const classes = ["score-cell", has ? "" : "empty", editing ? "editing" : ""]
               .filter(Boolean)
               .join(" ");
             return `<td class="${classes}" data-player="${p}" data-round="${r}">${value}</td>`;
@@ -734,14 +781,15 @@
 
     function renderEntry() {
       const editing = Boolean(session.edit);
-      els.activeLabel.textContent = editing ? "Korrigieren" : "Am Zug";
       if (editing) {
-        const { player, round } = session.edit;
-        els.activeName.textContent = `${session.names[player]} · Runde ${round + 1}`;
+        const { round } = session.edit;
+        els.topStatus.textContent = `Korrektur · Runde ${round + 1}`;
+        els.topStatus.classList.remove("muted");
         els.entryLabel.textContent = "Korrektur";
         els.hint.textContent = "Wert ändern und OK tippen – oder im Menü abbrechen.";
       } else {
-        els.activeName.textContent = session.names[session.active];
+        els.topStatus.textContent = "Punktestand";
+        els.topStatus.classList.add("muted");
         els.entryLabel.textContent = "Rundenpunkte";
         els.hint.textContent = "Tippe auf einen Wert, um ihn zu korrigieren.";
       }
@@ -752,6 +800,7 @@
 
       els.menuCancelEdit.hidden = !editing;
       els.menuUndo.hidden = editing;
+      applyViewportFlip();
     }
 
     function renderAll() {
@@ -774,6 +823,7 @@
         active: 0,
         input: "",
         edit: null,
+        flipView: false,
       };
       saveSession();
       showScreen("play");
@@ -787,8 +837,23 @@
         renderAll();
       } else {
         showScreen("setup");
+        els.viewport.classList.remove("flipped");
+        if (els.menuFlip) els.menuFlip.setAttribute("aria-checked", "false");
         els.name0.focus();
       }
+    }
+
+    function toggleFlipView() {
+      if (!session) return;
+      session.flipView = !session.flipView;
+      saveSession();
+      applyViewportFlip();
+      closeMenu();
+      showToast(
+        session.flipView
+          ? "Ansicht drehen an – bei Spieler 2 um 180°"
+          : "Ansicht drehen aus"
+      );
     }
 
     function appendDigit(digit) {
@@ -887,6 +952,8 @@
       saveSession();
       els.form.reset();
       showScreen("setup");
+      els.viewport.classList.remove("flipped");
+      if (els.menuFlip) els.menuFlip.setAttribute("aria-checked", "false");
       els.overlay.classList.remove("open");
       closeMenu();
       els.name0.focus();
@@ -938,6 +1005,7 @@
       }
     });
 
+    els.menuFlip.addEventListener("click", toggleFlipView);
     els.menuUndo.addEventListener("click", undoLast);
     els.menuCancelEdit.addEventListener("click", cancelEdit);
     els.menuNew.addEventListener("click", () => {
