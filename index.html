@@ -368,6 +368,11 @@
       toastTimer = setTimeout(() => els.toast.classList.remove("show"), 2200);
     }
 
+    function hideToast() {
+      clearTimeout(toastTimer);
+      els.toast.classList.remove("show");
+    }
+
     function showScreen(name) {
       els.setup.classList.toggle("active", name === "setup");
       els.play.classList.toggle("active", name === "play");
@@ -991,6 +996,7 @@
       els.overlay.classList.remove("open");
       els.winOverlay.classList.remove("open");
       stopConfetti();
+      hideToast();
       closeMenu();
       const first = document.getElementById("name-0");
       if (first) first.focus();
