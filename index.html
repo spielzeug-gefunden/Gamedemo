@@ -834,15 +834,24 @@
       closeMenu();
       if (!session || session.edit) return;
       const leaders = leadingPlayerIndexes();
-      for (const index of leaders) {
-        session.scores[index].push(-LEADER_PENALTY);
+      const amounts = leaders.map((index) => {
+        const total = playerTotal(index);
+        return Math.min(LEADER_PENALTY, Math.max(0, total));
+      });
+      if (amounts.every((amount) => amount === 0)) {
+        showToast("Keine Punkte zum Abziehen");
+        return;
       }
+      leaders.forEach((index, i) => {
+        if (amounts[i] > 0) session.scores[index].push(-amounts[i]);
+      });
       session.input = "";
       applyWinner(null, false);
       saveSession();
       renderAll();
       const names = leaders.map((i) => session.names[i]).join(", ");
-      showToast(`${names}: −${LEADER_PENALTY}`);
+      const amount = amounts.find((value) => value > 0) || 0;
+      showToast(`${names}: −${amount}`);
     }
 
     function resetToSetup() {
