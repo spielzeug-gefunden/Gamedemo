@@ -469,6 +469,20 @@ table.scores {
 
 .scores th.round { z-index: 3; }
 
+.scores tr.penalty-row td {
+  background: rgba(217, 177, 90, 0.08);
+}
+
+.scores tr.penalty-row td.round {
+  background: rgba(24, 40, 36, 0.96);
+}
+
+.scores td.round.penalty-mark {
+  color: #ffd08a;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
 .scores td.score-cell {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-weight: 600;

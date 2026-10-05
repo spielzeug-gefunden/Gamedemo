@@ -155,8 +155,10 @@
     const MAX_PLAYERS = 8;
     const WINNING_SCORE = 6000;
     const LEADER_PENALTY = 1000;
+    const PENALTY_MARK = "↓";
 
-    /** @typedef {{ names: string[], scores: number[][], active: number, input: string, edit: null | { player: number, round: number }, flipView: boolean, winner: number | null, winDismissed: boolean }} Session */
+    /** @typedef {{ kind: 'round' | 'penalty', values: (number|null)[] }} ScoreRow */
+    /** @typedef {{ names: string[], rows: ScoreRow[], active: number, input: string, edit: null | { row: number, player: number }, flipView: boolean, winner: number | null, winDismissed: boolean }} Session */
 
     const els = {
       viewport: document.getElementById("viewport"),
@@ -225,6 +227,40 @@
       document.cookie = `${encodeURIComponent(name)}=; Max-Age=0; Path=/; SameSite=Lax`;
     }
 
+    function emptyValues(count) {
+      return Array.from({ length: count }, () => null);
+    }
+
+    function rowsFromLegacyScores(scores) {
+      const n = Math.max(0, ...scores.map((list) => list.length));
+      const rows = [];
+      for (let r = 0; r < n; r++) {
+        const values = scores.map((list) => (r < list.length ? Number(list[r]) : null));
+        const present = values.filter((value) => value != null);
+        const kind = present.length > 0 && present.every((value) => value < 0) ? "penalty" : "round";
+        rows.push({ kind, values });
+      }
+      return rows;
+    }
+
+    function normalizeRows(rows, playerCount) {
+      if (!Array.isArray(rows)) return [];
+      return rows
+        .map((row) => {
+          if (!row || (row.kind !== "round" && row.kind !== "penalty") || !Array.isArray(row.values)) {
+            return null;
+          }
+          const values = emptyValues(playerCount).map((_, i) => {
+            if (i >= row.values.length || row.values[i] == null || row.values[i] === "") return null;
+            const n = Number(row.values[i]);
+            return Number.isFinite(n) ? n : null;
+          });
+          if (values.every((value) => value == null)) return null;
+          return { kind: row.kind, values };
+        })
+        .filter(Boolean);
+    }
+
     function saveSession() {
       if (!session) {
         deleteCookie(COOKIE_NAME);
@@ -234,7 +270,7 @@
         COOKIE_NAME,
         JSON.stringify({
           names: session.names,
-          scores: session.scores,
+          rows: session.rows,
           active: session.active,
           flipView: Boolean(session.flipView),
           winner: Number.isInteger(session.winner) ? session.winner : null,
@@ -251,21 +287,26 @@
         const data = JSON.parse(raw);
         if (
           !Array.isArray(data.names) ||
-          !Array.isArray(data.scores) ||
           data.names.length < MIN_PLAYERS ||
-          data.names.length > MAX_PLAYERS ||
-          data.names.length !== data.scores.length
+          data.names.length > MAX_PLAYERS
         ) {
           return null;
         }
+        const playerCount = data.names.length;
+        let rows = normalizeRows(data.rows, playerCount);
+        if (!rows.length && Array.isArray(data.scores) && data.scores.length === playerCount) {
+          rows = rowsFromLegacyScores(
+            data.scores.map((list) => (Array.isArray(list) ? list.map(Number) : []))
+          );
+        }
         const winner =
-          Number.isInteger(data.winner) && data.winner >= 0 && data.winner < data.names.length
+          Number.isInteger(data.winner) && data.winner >= 0 && data.winner < playerCount
             ? data.winner
             : null;
         return {
           names: data.names.map(String),
-          scores: data.scores.map((list) => (Array.isArray(list) ? list.map(Number) : [])),
-          active: Number.isInteger(data.active) ? Math.min(data.active, data.names.length - 1) : 0,
+          rows,
+          active: Number.isInteger(data.active) ? Math.min(Math.max(0, data.active), playerCount - 1) : 0,
           input: "",
           edit: null,
           flipView: Boolean(data.flipView),
@@ -278,7 +319,12 @@
     }
 
     function playerTotal(player) {
-      return session.scores[player].reduce((a, b) => a + b, 0);
+      let sum = 0;
+      for (const row of session.rows) {
+        const value = row.values[player];
+        if (value != null) sum += value;
+      }
+      return sum;
     }
 
     function findWinner(preferPlayer) {
@@ -341,7 +387,7 @@
     }
 
     function totals() {
-      return session.scores.map((list) => list.reduce((a, b) => a + b, 0));
+      return session.names.map((_, player) => playerTotal(player));
     }
 
     function formatScore(value) {
@@ -351,18 +397,34 @@
       return String(n);
     }
 
-    function leadingPlayerIndexes() {
+    function penaltyTargets() {
       const sums = totals();
       const best = Math.max(...sums);
-      const leaders = [];
+      const targets = [];
       for (let i = 0; i < sums.length; i++) {
-        if (sums[i] === best) leaders.push(i);
+        if (i === session.active) continue;
+        if (sums[i] === best) targets.push(i);
       }
-      return leaders;
+      return targets;
     }
 
-    function maxRounds() {
-      return Math.max(0, ...session.scores.map((list) => list.length));
+    function roundLabelNumber(rowIndex) {
+      let n = 0;
+      for (let i = 0; i <= rowIndex; i++) {
+        if (session.rows[i] && session.rows[i].kind === "round") n += 1;
+      }
+      return n;
+    }
+
+    function draftTarget() {
+      if (!session || session.edit) return null;
+      for (let i = 0; i < session.rows.length; i++) {
+        const row = session.rows[i];
+        if (row.kind === "round" && row.values[session.active] == null) {
+          return { rowIndex: i, virtual: false };
+        }
+      }
+      return { rowIndex: session.rows.length, virtual: true };
     }
 
     function renderSetupFields() {
@@ -386,45 +448,49 @@
       setupNames = Array.from(inputs).map((input) => input.value);
     }
 
-    function draftRoundIndex() {
-      if (!session || session.edit) return null;
-      return session.scores[session.active].length;
-    }
-
-    function cellDisplay(player, round) {
-      if (session.edit && session.edit.player === player && session.edit.round === round) {
+    function cellDisplay(rowIndex, player, row) {
+      if (session.edit && session.edit.player === player && session.edit.row === rowIndex) {
         return {
           value: session.input === "" ? "·" : session.input,
           editing: true,
           empty: session.input === "",
           interactive: true,
+          negative: false,
         };
       }
-      const draft = draftRoundIndex();
-      if (draft !== null && player === session.active && round === draft) {
+      const draft = draftTarget();
+      if (
+        draft &&
+        !draft.virtual &&
+        draft.rowIndex === rowIndex &&
+        player === session.active &&
+        row.kind === "round"
+      ) {
         return {
           value: session.input === "" ? "·" : session.input,
           editing: true,
           empty: session.input === "",
           interactive: false,
+          negative: false,
         };
       }
-      if (round < session.scores[player].length) {
+      const raw = row.values[player];
+      if (raw != null) {
         return {
-          value: formatScore(session.scores[player][round]),
+          value: formatScore(raw),
           editing: false,
           empty: false,
           interactive: true,
+          negative: raw < 0,
         };
       }
-      return { value: "–", editing: false, empty: true, interactive: false };
+      return { value: "–", editing: false, empty: true, interactive: false, negative: false };
     }
 
     function renderTable() {
       const highlight = facingPlayer();
       const playerCount = session.names.length;
-      const draft = draftRoundIndex();
-      const n = Math.max(maxRounds(), draft !== null ? draft + 1 : 0, 1);
+      const draft = draftTarget();
 
       els.thead.innerHTML = `<tr>
         <th class="round">Rd.</th>
@@ -436,34 +502,53 @@
           .join("")}
       </tr>`;
 
-      const rows = [];
-      for (let r = 0; r < n; r++) {
+      const htmlRows = [];
+      for (let r = 0; r < session.rows.length; r++) {
+        const row = session.rows[r];
+        const penalty = row.kind === "penalty";
         const cells = [];
         for (let p = 0; p < playerCount; p++) {
-          const cell = cellDisplay(p, r);
-          const negative =
-            !cell.empty &&
-            !cell.editing &&
-            r < session.scores[p].length &&
-            session.scores[p][r] < 0;
+          const cell = cellDisplay(r, p, row);
           const classes = [
             "score-cell",
             cell.empty ? "empty" : "",
             cell.editing ? "editing" : "",
-            negative ? "negative" : "",
+            cell.negative || (penalty && !cell.empty) ? "negative" : "",
           ]
             .filter(Boolean)
             .join(" ");
           const attrs = cell.interactive
-            ? ` data-player="${p}" data-round="${r}"`
+            ? ` data-player="${p}" data-row="${r}"`
             : cell.editing
-              ? ` data-draft="1" data-player="${p}" data-round="${r}"`
+              ? ` data-draft="1" data-player="${p}" data-row="${r}"`
               : "";
           cells.push(`<td class="${classes}"${attrs}>${escapeHtml(cell.value)}</td>`);
         }
-        rows.push(`<tr><td class="round">${r + 1}</td>${cells.join("")}</tr>`);
+        const label = penalty
+          ? `<td class="round penalty-mark" title="Punktabzug">${PENALTY_MARK}</td>`
+          : `<td class="round">${roundLabelNumber(r)}</td>`;
+        htmlRows.push(
+          `<tr class="${penalty ? "penalty-row" : "round-row"}">${label}${cells.join("")}</tr>`
+        );
       }
-      els.tbody.innerHTML = rows.join("");
+
+      if (draft && draft.virtual) {
+        const cells = [];
+        for (let p = 0; p < playerCount; p++) {
+          if (p === session.active) {
+            const empty = session.input === "";
+            cells.push(
+              `<td class="score-cell editing${empty ? " empty" : ""}" data-draft="1" data-player="${p}" data-row="${draft.rowIndex}">${empty ? "·" : escapeHtml(session.input)}</td>`
+            );
+          } else {
+            cells.push(`<td class="score-cell empty">–</td>`);
+          }
+        }
+        const roundNo = session.rows.filter((row) => row.kind === "round").length + 1;
+        htmlRows.push(`<tr class="round-row"><td class="round">${roundNo}</td>${cells.join("")}</tr>`);
+      }
+
+      els.tbody.innerHTML = htmlRows.join("");
 
       const sums = totals();
       els.tfoot.innerHTML = `<tr>
@@ -701,7 +786,7 @@
       const resolved = resolvePlayerNames(names);
       session = {
         names: resolved,
-        scores: Array.from({ length: resolved.length }, () => []),
+        rows: [],
         active: 0,
         input: "",
         edit: null,
@@ -770,10 +855,11 @@
       }
 
       if (session.edit) {
-        const { player, round } = session.edit;
-        if (round >= session.scores[player].length) return;
+        const { player, row } = session.edit;
+        if (row < 0 || row >= session.rows.length) return;
+        if (session.rows[row].values[player] == null) return;
         const before = playerTotal(player);
-        session.scores[player][round] = value;
+        session.rows[row].values[player] = value;
         const after = playerTotal(player);
         session.edit = null;
         session.input = "";
@@ -787,7 +873,15 @@
       }
 
       const scorer = session.active;
-      session.scores[scorer].push(value);
+      const target = draftTarget();
+      if (!target) return;
+      if (target.virtual) {
+        const values = emptyValues(session.names.length);
+        values[scorer] = value;
+        session.rows.push({ kind: "round", values });
+      } else {
+        session.rows[target.rowIndex].values[scorer] = value;
+      }
       const reached = playerTotal(scorer) >= WINNING_SCORE;
       applyWinner(scorer, reached);
       session.active = (session.active + 1) % session.names.length;
@@ -796,11 +890,13 @@
       renderAll();
     }
 
-    function beginEdit(player, round) {
+    function beginEdit(player, row) {
       if (!session) return;
-      if (round >= session.scores[player].length) return;
-      session.edit = { player, round };
-      session.input = String(session.scores[player][round]);
+      if (row < 0 || row >= session.rows.length) return;
+      const value = session.rows[row].values[player];
+      if (value == null) return;
+      session.edit = { player, row };
+      session.input = String(value);
       closeMenu();
       renderAll();
     }
@@ -815,42 +911,68 @@
     function undoLast() {
       closeMenu();
       if (!session || session.edit) return;
-      const count = session.names.length;
-      const prev = (session.active - 1 + count) % count;
-      if (session.scores[prev].length === 0) {
+      if (!session.rows.length) {
         showToast("Nichts zum Löschen");
         return;
       }
-      session.scores[prev].pop();
-      session.active = prev;
-      session.input = "";
-      applyWinner(null, false);
-      saveSession();
-      renderAll();
-      showToast("Letzter Eintrag gelöscht");
+
+      const last = session.rows[session.rows.length - 1];
+      if (last.kind === "penalty") {
+        session.rows.pop();
+        session.input = "";
+        applyWinner(null, false);
+        saveSession();
+        renderAll();
+        showToast("Abzug gelöscht");
+        return;
+      }
+
+      const count = session.names.length;
+      const prev = (session.active - 1 + count) % count;
+      for (let i = session.rows.length - 1; i >= 0; i--) {
+        const row = session.rows[i];
+        if (row.kind !== "round" || row.values[prev] == null) continue;
+        row.values[prev] = null;
+        if (row.values.every((value) => value == null)) session.rows.splice(i, 1);
+        session.active = prev;
+        session.input = "";
+        applyWinner(null, false);
+        saveSession();
+        renderAll();
+        showToast("Letzter Eintrag gelöscht");
+        return;
+      }
+      showToast("Nichts zum Löschen");
     }
 
     function penalizeLeaders() {
       closeMenu();
       if (!session || session.edit) return;
-      const leaders = leadingPlayerIndexes();
-      const amounts = leaders.map((index) => {
-        const total = playerTotal(index);
-        return Math.min(LEADER_PENALTY, Math.max(0, total));
-      });
-      if (amounts.every((amount) => amount === 0)) {
+      const targets = penaltyTargets();
+      if (!targets.length) {
+        showToast("Aktueller Spieler erhält keinen Abzug");
+        return;
+      }
+      const values = emptyValues(session.names.length);
+      const applied = [];
+      for (const index of targets) {
+        const amount = Math.min(LEADER_PENALTY, Math.max(0, playerTotal(index)));
+        if (amount > 0) {
+          values[index] = -amount;
+          applied.push({ index, amount });
+        }
+      }
+      if (!applied.length) {
         showToast("Keine Punkte zum Abziehen");
         return;
       }
-      leaders.forEach((index, i) => {
-        if (amounts[i] > 0) session.scores[index].push(-amounts[i]);
-      });
+      session.rows.push({ kind: "penalty", values });
       session.input = "";
       applyWinner(null, false);
       saveSession();
       renderAll();
-      const names = leaders.map((i) => session.names[i]).join(", ");
-      const amount = amounts.find((value) => value > 0) || 0;
+      const names = applied.map((item) => session.names[item.index]).join(", ");
+      const amount = applied[0].amount;
       showToast(`${names}: −${amount}`);
     }
 
@@ -940,9 +1062,9 @@
       const cell = event.target.closest("td.score-cell[data-player]");
       if (!cell || !session || cell.dataset.draft === "1") return;
       const player = Number(cell.dataset.player);
-      const round = Number(cell.dataset.round);
-      if (round >= session.scores[player].length) return;
-      beginEdit(player, round);
+      const row = Number(cell.dataset.row);
+      if (!Number.isInteger(player) || !Number.isInteger(row)) return;
+      beginEdit(player, row);
     });
 
     els.menuBtn.addEventListener("click", (event) => {
