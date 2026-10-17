@@ -69,10 +69,7 @@
               </button>
               <button type="button" role="menuitem" id="menu-fullscreen">Vollbild</button>
               <button type="button" role="menuitem" id="menu-homescreen">Zu Homebildschirm hinzufügen</button>
-              <button type="button" role="menuitem" id="menu-undo">Letzten Eintrag löschen</button>
-              <button type="button" role="menuitem" id="menu-penalty">−1000 für Führende</button>
               <button type="button" role="menuitem" id="menu-cancel-edit" hidden>Bearbeiten abbrechen</button>
-              <button type="button" role="menuitem" class="danger" id="menu-new">Neues Spiel…</button>
             </div>
           </div>
         </header>
@@ -90,19 +87,27 @@
           </section>
 
           <section class="glass keypad-panel" aria-label="Zifferneingabe">
-            <div class="keys" id="keys">
-              <button type="button" data-key="7">7</button>
-              <button type="button" data-key="8">8</button>
-              <button type="button" data-key="9">9</button>
-              <button type="button" data-key="4">4</button>
-              <button type="button" data-key="5">5</button>
-              <button type="button" data-key="6">6</button>
-              <button type="button" data-key="1">1</button>
-              <button type="button" data-key="2">2</button>
-              <button type="button" data-key="3">3</button>
-              <button type="button" class="key-del" data-key="del" aria-label="Löschen">⌫</button>
-              <button type="button" data-key="0">0</button>
-              <button type="button" class="key-ok" data-key="ok">OK</button>
+            <div class="keypad-layout">
+              <div class="side-actions" id="side-actions" aria-label="Spielaktionen">
+                <button type="button" id="action-undo" aria-label="Letzten Eintrag löschen">↺</button>
+                <button type="button" id="action-penalty" aria-label="±1000 für Führende">±1000</button>
+                <button type="button" id="action-flip" aria-pressed="false" aria-label="Ansicht drehen">Drehen</button>
+                <button type="button" id="action-new" class="action-new" aria-label="Neues Spiel">Neues<br />Spiel</button>
+              </div>
+              <div class="keys" id="keys">
+                <button type="button" data-key="7">7</button>
+                <button type="button" data-key="8">8</button>
+                <button type="button" data-key="9">9</button>
+                <button type="button" data-key="4">4</button>
+                <button type="button" data-key="5">5</button>
+                <button type="button" data-key="6">6</button>
+                <button type="button" data-key="1">1</button>
+                <button type="button" data-key="2">2</button>
+                <button type="button" data-key="3">3</button>
+                <button type="button" class="key-del" data-key="del" aria-label="Löschen">⌫</button>
+                <button type="button" data-key="0">0</button>
+                <button type="button" class="key-ok" data-key="ok">OK</button>
+              </div>
             </div>
           </section>
         </div>
@@ -173,10 +178,11 @@
       menuFlip: document.getElementById("menu-flip"),
       menuFullscreen: document.getElementById("menu-fullscreen"),
       menuHomescreen: document.getElementById("menu-homescreen"),
-      menuUndo: document.getElementById("menu-undo"),
-      menuPenalty: document.getElementById("menu-penalty"),
       menuCancelEdit: document.getElementById("menu-cancel-edit"),
-      menuNew: document.getElementById("menu-new"),
+      actionUndo: document.getElementById("action-undo"),
+      actionPenalty: document.getElementById("action-penalty"),
+      actionFlip: document.getElementById("action-flip"),
+      actionNew: document.getElementById("action-new"),
       table: document.getElementById("score-table"),
       thead: document.querySelector("#score-table thead"),
       tbody: document.querySelector("#score-table tbody"),
@@ -358,7 +364,10 @@
       // Gegenüber: ungerade Spielerindizes (1, 3, 5…) drehen
       const shouldFlip = Boolean(session && session.flipView && facingPlayer() % 2 === 1);
       els.viewport.classList.toggle("flipped", shouldFlip);
-      els.menuFlip.setAttribute("aria-checked", session && session.flipView ? "true" : "false");
+      const flipOn = Boolean(session && session.flipView);
+      els.menuFlip.setAttribute("aria-checked", flipOn ? "true" : "false");
+      els.actionFlip.setAttribute("aria-pressed", flipOn ? "true" : "false");
+      els.actionFlip.classList.toggle("active", flipOn);
     }
 
     function showToast(message) {
@@ -618,8 +627,8 @@
         ? "Zelle ändern und OK tippen – oder im Menü abbrechen."
         : "Tippe auf einen Wert, um ihn zu korrigieren.";
       els.menuCancelEdit.hidden = !editing;
-      els.menuUndo.hidden = editing;
-      els.menuPenalty.hidden = editing;
+      els.actionUndo.disabled = editing;
+      els.actionPenalty.disabled = editing;
       applyViewportFlip();
       syncWinOverlay();
     }
@@ -815,6 +824,8 @@
         showScreen("setup");
         els.viewport.classList.remove("flipped");
         els.menuFlip.setAttribute("aria-checked", "false");
+        els.actionFlip.setAttribute("aria-pressed", "false");
+        els.actionFlip.classList.remove("active");
         const first = document.getElementById("name-0");
         if (first) first.focus();
       }
@@ -993,6 +1004,8 @@
       showScreen("setup");
       els.viewport.classList.remove("flipped");
       els.menuFlip.setAttribute("aria-checked", "false");
+      els.actionFlip.setAttribute("aria-pressed", "false");
+      els.actionFlip.classList.remove("active");
       els.overlay.classList.remove("open");
       els.winOverlay.classList.remove("open");
       stopConfetti();
@@ -1178,10 +1191,11 @@
     els.menuFlip.addEventListener("click", toggleFlipView);
     els.menuFullscreen.addEventListener("click", toggleFullscreen);
     els.menuHomescreen.addEventListener("click", addToHomescreen);
-    els.menuUndo.addEventListener("click", undoLast);
-    els.menuPenalty.addEventListener("click", penalizeLeaders);
     els.menuCancelEdit.addEventListener("click", cancelEdit);
-    els.menuNew.addEventListener("click", askNewGame);
+    els.actionUndo.addEventListener("click", undoLast);
+    els.actionPenalty.addEventListener("click", penalizeLeaders);
+    els.actionFlip.addEventListener("click", toggleFlipView);
+    els.actionNew.addEventListener("click", askNewGame);
     els.confirmCancel.addEventListener("click", () => els.overlay.classList.remove("open"));
     els.confirmOk.addEventListener("click", resetToSetup);
     els.homescreenOk.addEventListener("click", () => els.homescreenOverlay.classList.remove("open"));

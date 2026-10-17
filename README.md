@@ -13,7 +13,8 @@ Mobiler **Punktezähler** für Würfelspiele (nur Summen pro Runde, kein Spielab
 - „Neues Spiel“ behält die letzten Spielernamen
 - Rundenpunkte direkt in die hervorgehobene Tabellenzelle
 - Ab **6000** Punkten Gewinnanzeige mit Konfetti; **OK** führt zurück zum Spiel (weiter/korrigieren möglich)
-- Menü: **−1000 für Führende** (eigene Abzugszeile mit ↓; aktueller Spieler ausgenommen; Summe nie unter 0), Ansicht drehen, Vollbild, Zum Homebildschirm, Neues Spiel
+- Aktionstasten links vom Nummernfeld: Rückgängig, **±1000** (Abzug für Führende, eigene ↓-Zeile; aktueller Spieler ausgenommen; Summe nie unter 0), Drehen, Neues Spiel
+- Menü: Ansicht drehen, Vollbild, Zum Homebildschirm
 
 ## GitHub Pages
 
