@@ -18,14 +18,15 @@ Unter Windows Doppelklick auf [`start-server.bat`](./start-server.bat), unter Li
 
 ## Funktionen
 
-- **2–8 Spieler**, Session per Cookie auf dem Gerät
+- **2–8 Spieler**, laufende Session per Cookie auf dem Gerät
 - Leere Namen werden mit Fantasienamen aus [`names.js`](./names.js) gefüllt
 - „Neues Spiel“ behält die Namen und rotiert die Reihenfolge (bisheriger 2. wird 1. usw.); Reihenfolge im Setup per Ziehen am ⠿-Griff änderbar
 - Vollbild nur manuell über das Menü (kein Auto-Vollbild beim Start)
 - Rundenpunkte direkt in die hervorgehobene Tabellenzelle
 - Keypad links: **Neues Spiel**, **±** (Tutto: +1000 für den aktuellen Spieler, −1000 für andere Führende, Zugwechsel; Summe nie unter 0), **Niete** (0), **+** (Vormerken/aufaddieren)
 - Ab **6000** Punkten Gewinnanzeige mit Konfetti; **OK** führt zurück zum Spiel (weiter/korrigieren möglich)
-- Menü: Ansicht drehen, Vollbild, Zum Homebildschirm, Letzten Eintrag löschen, Neues Spiel
+- **Statistik** (IndexedDB, nur lokal im Browser): bei „Neues Spiel“ wird jede gespielte Partie inkl. Verlauf archiviert; Siege/Niederlagen, Spiele, Gesamtpunkte, Bestwert pro Spieler; Menü oder Setup-Button
+- Menü: Ansicht drehen, Vollbild, Zum Homebildschirm, Letzten Eintrag löschen, Statistik, Neues Spiel
 
 ## GitHub Pages
 
