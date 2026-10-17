@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=4col" />
   <script src="./names.js"></script>
 </head>
 <body>
@@ -70,7 +70,6 @@
               <button type="button" role="menuitem" id="menu-fullscreen">Vollbild</button>
               <button type="button" role="menuitem" id="menu-homescreen">Zu Homebildschirm hinzufügen</button>
               <button type="button" role="menuitem" id="menu-undo">Letzten Eintrag löschen</button>
-              <button type="button" role="menuitem" id="menu-penalty">−1000 für Führende</button>
               <button type="button" role="menuitem" id="menu-cancel-edit" hidden>Bearbeiten abbrechen</button>
               <button type="button" role="menuitem" class="danger" id="menu-new">Neues Spiel…</button>
             </div>
@@ -91,15 +90,19 @@
 
           <section class="glass keypad-panel" aria-label="Zifferneingabe">
             <div class="keys" id="keys">
+              <button type="button" class="key-fn key-new" data-key="new" aria-label="Neues Spiel"><span>Neues<br />Spiel</span></button>
               <button type="button" data-key="7">7</button>
               <button type="button" data-key="8">8</button>
               <button type="button" data-key="9">9</button>
+              <button type="button" class="key-fn key-tutto" data-key="tutto" aria-label="Plus Minus Tutto">±</button>
               <button type="button" data-key="4">4</button>
               <button type="button" data-key="5">5</button>
               <button type="button" data-key="6">6</button>
+              <button type="button" class="key-fn key-niete" data-key="niete" aria-label="Niete">Niete</button>
               <button type="button" data-key="1">1</button>
               <button type="button" data-key="2">2</button>
               <button type="button" data-key="3">3</button>
+              <button type="button" class="key-fn key-mark" data-key="mark" aria-label="Vormerken">+</button>
               <button type="button" class="key-del" data-key="del" aria-label="Löschen">⌫</button>
               <button type="button" data-key="0">0</button>
               <button type="button" class="key-ok" data-key="ok">OK</button>
@@ -157,8 +160,8 @@
     const LEADER_PENALTY = 1000;
     const PENALTY_MARK = "↓";
 
-    /** @typedef {{ kind: 'round' | 'penalty', values: (number|null)[] }} ScoreRow */
-    /** @typedef {{ names: string[], rows: ScoreRow[], active: number, input: string, edit: null | { row: number, player: number }, flipView: boolean, winner: number | null, winDismissed: boolean }} Session */
+    /** @typedef {{ kind: 'round' | 'penalty', values: (number|null)[], sealed?: boolean }} ScoreRow */
+    /** @typedef {{ names: string[], rows: ScoreRow[], active: number, input: string, marked: number, hasMarked: boolean, edit: null | { row: number, player: number }, flipView: boolean, winner: number | null, winDismissed: boolean }} Session */
 
     const els = {
       viewport: document.getElementById("viewport"),
@@ -174,7 +177,6 @@
       menuFullscreen: document.getElementById("menu-fullscreen"),
       menuHomescreen: document.getElementById("menu-homescreen"),
       menuUndo: document.getElementById("menu-undo"),
-      menuPenalty: document.getElementById("menu-penalty"),
       menuCancelEdit: document.getElementById("menu-cancel-edit"),
       menuNew: document.getElementById("menu-new"),
       table: document.getElementById("score-table"),
@@ -256,7 +258,10 @@
             return Number.isFinite(n) ? n : null;
           });
           if (values.every((value) => value == null)) return null;
-          return { kind: row.kind, values };
+          /** @type {ScoreRow} */
+          const normalized = { kind: row.kind, values };
+          if (row.sealed) normalized.sealed = true;
+          return normalized;
         })
         .filter(Boolean);
     }
@@ -308,6 +313,8 @@
           rows,
           active: Number.isInteger(data.active) ? Math.min(Math.max(0, data.active), playerCount - 1) : 0,
           input: "",
+          marked: 0,
+          hasMarked: false,
           edit: null,
           flipView: Boolean(data.flipView),
           winner,
@@ -425,11 +432,30 @@
       if (!session || session.edit) return null;
       for (let i = 0; i < session.rows.length; i++) {
         const row = session.rows[i];
-        if (row.kind === "round" && row.values[session.active] == null) {
+        if (row.kind === "round" && !row.sealed && row.values[session.active] == null) {
           return { rowIndex: i, virtual: false };
         }
       }
       return { rowIndex: session.rows.length, virtual: true };
+    }
+
+    function clearMarked() {
+      if (!session) return;
+      session.marked = 0;
+      session.hasMarked = false;
+    }
+
+    function inputDisplay() {
+      if (!session) return "·";
+      if (session.hasMarked) {
+        if (session.input === "" || session.input === "-") return `${session.marked}+`;
+        return `${session.marked}+${session.input}`;
+      }
+      return session.input === "" ? "·" : session.input;
+    }
+
+    function isTuttoStyleRow(row) {
+      return Boolean(row && row.kind === "round" && (row.sealed || row.values.some((value) => value != null && value < 0)));
     }
 
     function renderSetupFields() {
@@ -455,10 +481,11 @@
 
     function cellDisplay(rowIndex, player, row) {
       if (session.edit && session.edit.player === player && session.edit.row === rowIndex) {
+        const display = inputDisplay();
         return {
-          value: session.input === "" ? "·" : session.input,
+          value: display,
           editing: true,
-          empty: session.input === "",
+          empty: display === "·",
           interactive: true,
           negative: false,
         };
@@ -471,10 +498,11 @@
         player === session.active &&
         row.kind === "round"
       ) {
+        const display = inputDisplay();
         return {
-          value: session.input === "" ? "·" : session.input,
+          value: display,
           editing: true,
-          empty: session.input === "",
+          empty: display === "·",
           interactive: false,
           negative: false,
         };
@@ -541,9 +569,10 @@
         const cells = [];
         for (let p = 0; p < playerCount; p++) {
           if (p === session.active) {
-            const empty = session.input === "";
+            const display = inputDisplay();
+            const empty = display === "·";
             cells.push(
-              `<td class="score-cell editing${empty ? " empty" : ""}" data-draft="1" data-player="${p}" data-row="${draft.rowIndex}">${empty ? "·" : escapeHtml(session.input)}</td>`
+              `<td class="score-cell editing${empty ? " empty" : ""}" data-draft="1" data-player="${p}" data-row="${draft.rowIndex}">${escapeHtml(display)}</td>`
             );
           } else {
             cells.push(`<td class="score-cell empty">–</td>`);
@@ -605,8 +634,9 @@
         renderTable();
         return;
       }
-      const empty = session.input === "";
-      cell.textContent = empty ? "·" : session.input;
+      const display = inputDisplay();
+      const empty = display === "·";
+      cell.textContent = display;
       cell.classList.toggle("empty", empty);
     }
 
@@ -619,7 +649,6 @@
         : "Tippe auf einen Wert, um ihn zu korrigieren.";
       els.menuCancelEdit.hidden = !editing;
       els.menuUndo.hidden = editing;
-      els.menuPenalty.hidden = editing;
       applyViewportFlip();
       syncWinOverlay();
     }
@@ -794,6 +823,8 @@
         rows: [],
         active: 0,
         input: "",
+        marked: 0,
+        hasMarked: false,
         edit: null,
         flipView: false,
         winner: null,
@@ -849,17 +880,18 @@
 
     function commitOk() {
       if (!session) return;
-      if (session.input === "" || session.input === "-") {
-        showToast("Bitte Punkte eingeben");
-        return;
-      }
-      const value = Number(session.input);
-      if (!Number.isFinite(value)) {
-        showToast("Ungültige Zahl");
-        return;
-      }
 
+      let value;
       if (session.edit) {
+        if (session.input === "" || session.input === "-") {
+          showToast("Bitte Punkte eingeben");
+          return;
+        }
+        value = Number(session.input);
+        if (!Number.isFinite(value)) {
+          showToast("Ungültige Zahl");
+          return;
+        }
         const { player, row } = session.edit;
         if (row < 0 || row >= session.rows.length) return;
         if (session.rows[row].values[player] == null) return;
@@ -868,6 +900,7 @@
         const after = playerTotal(player);
         session.edit = null;
         session.input = "";
+        clearMarked();
         applyWinner(player, before < WINNING_SCORE && after >= WINNING_SCORE);
         saveSession();
         renderAll();
@@ -875,6 +908,26 @@
           showToast("Eintrag korrigiert");
         }
         return;
+      }
+
+      if (session.hasMarked) {
+        const inputPart =
+          session.input === "" || session.input === "-" ? 0 : Number(session.input);
+        if (!Number.isFinite(inputPart)) {
+          showToast("Ungültige Zahl");
+          return;
+        }
+        value = session.marked + inputPart;
+      } else {
+        if (session.input === "" || session.input === "-") {
+          showToast("Bitte Punkte eingeben");
+          return;
+        }
+        value = Number(session.input);
+        if (!Number.isFinite(value)) {
+          showToast("Ungültige Zahl");
+          return;
+        }
       }
 
       const scorer = session.active;
@@ -891,8 +944,50 @@
       applyWinner(scorer, reached);
       session.active = (session.active + 1) % session.names.length;
       session.input = "";
+      clearMarked();
       saveSession();
       renderAll();
+    }
+
+    function markAdd() {
+      if (!session) return;
+      if (session.edit) {
+        showToast("Vormerken nur beim aktuellen Zug");
+        return;
+      }
+      if (session.input === "" || session.input === "-") {
+        showToast("Bitte Punkte eingeben");
+        return;
+      }
+      const value = Number(session.input);
+      if (!Number.isFinite(value)) {
+        showToast("Ungültige Zahl");
+        return;
+      }
+      if (value < 0) {
+        showToast("Ungültige Zahl");
+        return;
+      }
+      if (value === 0) {
+        session.marked = 0;
+        session.hasMarked = true;
+      } else {
+        session.marked += value;
+        session.hasMarked = true;
+      }
+      session.input = "";
+      updateEditingCell();
+    }
+
+    function commitNiete() {
+      if (!session) return;
+      if (session.edit) {
+        showToast("Niete nur beim aktuellen Zug");
+        return;
+      }
+      clearMarked();
+      session.input = "0";
+      commitOk();
     }
 
     function beginEdit(player, row) {
@@ -902,6 +997,7 @@
       if (value == null) return;
       session.edit = { player, row };
       session.input = String(value);
+      clearMarked();
       closeMenu();
       renderAll();
     }
@@ -909,6 +1005,7 @@
     function cancelEdit() {
       session.edit = null;
       session.input = "";
+      clearMarked();
       closeMenu();
       renderAll();
     }
@@ -925,6 +1022,7 @@
       if (last.kind === "penalty") {
         session.rows.pop();
         session.input = "";
+        clearMarked();
         applyWinner(null, false);
         saveSession();
         renderAll();
@@ -932,15 +1030,33 @@
         return;
       }
 
+      if (isTuttoStyleRow(last)) {
+        const scorer = last.values.findIndex((value) => value != null && value > 0);
+        session.rows.pop();
+        if (scorer >= 0) session.active = scorer;
+        else {
+          const count = session.names.length;
+          session.active = (session.active - 1 + count) % count;
+        }
+        session.input = "";
+        clearMarked();
+        applyWinner(null, false);
+        saveSession();
+        renderAll();
+        showToast("Tutto-Zug gelöscht");
+        return;
+      }
+
       const count = session.names.length;
       const prev = (session.active - 1 + count) % count;
       for (let i = session.rows.length - 1; i >= 0; i--) {
         const row = session.rows[i];
-        if (row.kind !== "round" || row.values[prev] == null) continue;
+        if (row.kind !== "round" || row.sealed || row.values[prev] == null) continue;
         row.values[prev] = null;
         if (row.values.every((value) => value == null)) session.rows.splice(i, 1);
         session.active = prev;
         session.input = "";
+        clearMarked();
         applyWinner(null, false);
         saveSession();
         renderAll();
@@ -950,15 +1066,12 @@
       showToast("Nichts zum Löschen");
     }
 
-    function penalizeLeaders() {
-      closeMenu();
+    function tuttoLeaderSwap() {
       if (!session || session.edit) return;
       const targets = penaltyTargets();
-      if (!targets.length) {
-        showToast("Aktueller Spieler erhält keinen Abzug");
-        return;
-      }
       const values = emptyValues(session.names.length);
+      const scorer = session.active;
+      values[scorer] = LEADER_PENALTY;
       const applied = [];
       for (const index of targets) {
         const amount = Math.min(LEADER_PENALTY, Math.max(0, playerTotal(index)));
@@ -967,18 +1080,21 @@
           applied.push({ index, amount });
         }
       }
-      if (!applied.length) {
-        showToast("Keine Punkte zum Abziehen");
-        return;
-      }
-      session.rows.push({ kind: "penalty", values });
+      session.rows.push({ kind: "round", values, sealed: true });
+      const reached = playerTotal(scorer) >= WINNING_SCORE;
+      applyWinner(scorer, reached);
+      session.active = (session.active + 1) % session.names.length;
       session.input = "";
-      applyWinner(null, false);
+      clearMarked();
       saveSession();
       renderAll();
-      const names = applied.map((item) => session.names[item.index]).join(", ");
-      const amount = applied[0].amount;
-      showToast(`${names}: −${amount}`);
+      const name = session.names[scorer];
+      if (applied.length) {
+        const amount = applied[0].amount;
+        showToast(`${name}: +${LEADER_PENALTY} · Andere: −${amount}`);
+      } else {
+        showToast(`${name}: +${LEADER_PENALTY}`);
+      }
     }
 
     function resetToSetup() {
@@ -1036,6 +1152,10 @@
       if (!session) return;
       if (key === "ok") commitOk();
       else if (key === "del") deleteDigit();
+      else if (key === "new") askNewGame();
+      else if (key === "tutto") tuttoLeaderSwap();
+      else if (key === "niete") commitNiete();
+      else if (key === "mark") markAdd();
       else appendDigit(key);
     }
 
@@ -1179,7 +1299,6 @@
     els.menuFullscreen.addEventListener("click", toggleFullscreen);
     els.menuHomescreen.addEventListener("click", addToHomescreen);
     els.menuUndo.addEventListener("click", undoLast);
-    els.menuPenalty.addEventListener("click", penalizeLeaders);
     els.menuCancelEdit.addEventListener("click", cancelEdit);
     els.menuNew.addEventListener("click", askNewGame);
     els.confirmCancel.addEventListener("click", () => els.overlay.classList.remove("open"));
