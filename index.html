@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=stats-idb" />
+  <link rel="stylesheet" href="./styles.css?v=sum-stack-2" />
   <script src="./names.js"></script>
 </head>
 <body>
@@ -779,10 +779,34 @@
       return { value: "–", editing: false, empty: true, interactive: false, negative: false };
     }
 
+    function sumCellHtml(sum, { dual, active }) {
+      const text = escapeHtml(formatScore(sum));
+      const classes = [
+        dual ? "sum-stack" : "",
+        sum < 0 ? "negative" : "",
+        active ? "active-sum" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (!dual) {
+        return `<td${classes ? ` class="${classes}"` : ""}>${text}</td>`;
+      }
+      // Oben gedreht (Gegenüber), unten normal – beide in der sticky Σ-Zeile
+      return `<td class="${classes}">
+        <span class="sum-stack-face flip">${text}</span>
+        <span class="sum-stack-rule" aria-hidden="true"></span>
+        <span class="sum-stack-face">${text}</span>
+      </td>`;
+    }
+
     function renderTable() {
       const highlight = facingPlayer();
       const playerCount = session.names.length;
       const draft = draftTarget();
+      const sums = totals();
+      const dualSum = Boolean(session.flipView);
+
+      els.table.classList.toggle("flip-sums", dualSum);
 
       els.thead.innerHTML = `<tr>
         <th class="round">Rd.</th>
@@ -843,15 +867,17 @@
 
       els.tbody.innerHTML = htmlRows.join("");
 
-      const sums = totals();
-      els.tfoot.innerHTML = `<tr>
-        <td class="round">Σ</td>
-        ${sums
-          .map(
-            (sum) =>
-              `<td${sum < 0 ? ' class="negative"' : ""}>${escapeHtml(formatScore(sum))}</td>`
-          )
-          .join("")}
+      const sumLabel = dualSum
+        ? `<td class="round sum-stack">
+            <span class="sum-stack-face flip">Σ</span>
+            <span class="sum-stack-rule" aria-hidden="true"></span>
+            <span class="sum-stack-face">Σ</span>
+          </td>`
+        : `<td class="round">Σ</td>`;
+
+      els.tfoot.innerHTML = `<tr class="${dualSum ? "sum-dual-row" : ""}">
+        ${sumLabel}
+        ${sums.map((sum, i) => sumCellHtml(sum, { dual: dualSum, active: i === highlight })).join("")}
       </tr>`;
 
       const scroll = els.table.closest(".table-scroll");
@@ -1116,10 +1142,11 @@
       saveSession();
       applyViewportFlip();
       syncWinOverlay();
+      renderAll();
       closeMenu();
       showToast(
         session.flipView
-          ? "Ansicht drehen an – gegenüber (Spieler 2, 4, …)"
+          ? "Ansicht drehen an – Summe oben und unten lesbar"
           : "Ansicht drehen aus"
       );
     }
