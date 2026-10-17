@@ -198,12 +198,23 @@ button, a, .keys, .score-cell {
 }
 
 .players-list { display: grid; gap: 10px; }
+.players-list.is-dragging { touch-action: none; user-select: none; }
 
 .field {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: end;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.field.dragging {
+  opacity: 0.72;
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  border-radius: 16px;
+  background: rgba(217, 177, 90, 0.12);
+  z-index: 2;
 }
 
 .field label {
@@ -216,6 +227,24 @@ button, a, .keys, .score-cell {
   color: var(--ink-soft);
   margin-bottom: -2px;
 }
+
+.btn-drag {
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.btn-drag:active { cursor: grabbing; background: rgba(217, 177, 90, 0.2); color: #f0e2b8; }
 
 .field input {
   width: 100%;

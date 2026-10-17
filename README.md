@@ -20,7 +20,8 @@ Unter Windows Doppelklick auf [`start-server.bat`](./start-server.bat), unter Li
 
 - **2–8 Spieler**, Session per Cookie auf dem Gerät
 - Leere Namen werden mit Fantasienamen aus [`names.js`](./names.js) gefüllt
-- „Neues Spiel“ behält die letzten Spielernamen (Menü oder Keypad)
+- „Neues Spiel“ behält die Namen und rotiert die Reihenfolge (bisheriger 2. wird 1. usw.); Reihenfolge im Setup per Ziehen am ⠿-Griff änderbar
+- Vollbild nur manuell über das Menü (kein Auto-Vollbild beim Start)
 - Rundenpunkte direkt in die hervorgehobene Tabellenzelle
 - Keypad links: **Neues Spiel**, **±** (Tutto: +1000 für den aktuellen Spieler, −1000 für andere Führende, Zugwechsel; Summe nie unter 0), **Niete** (0), **+** (Vormerken/aufaddieren)
 - Ab **6000** Punkten Gewinnanzeige mit Konfetti; **OK** führt zurück zum Spiel (weiter/korrigieren möglich)

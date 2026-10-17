@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=4col" />
+  <link rel="stylesheet" href="./styles.css?v=setup-dnd" />
   <script src="./names.js"></script>
 </head>
 <body>
@@ -43,7 +43,7 @@
         <div class="glass setup-card">
           <p class="brand">Punktestand</p>
           <h1>Neues Spiel</h1>
-          <p class="lede">Namen eingeben – die Session bleibt auf diesem Gerät gespeichert.</p>
+          <p class="lede">Namen eingeben, Reihenfolge per Ziehen ändern – die Session bleibt auf diesem Gerät.</p>
           <form id="setup-form" class="setup-form">
             <div class="setup-scroll">
               <div class="players-list" id="players-list"></div>
@@ -211,6 +211,8 @@
     /** @type {string[]} */
     let setupNames = ["", ""];
     let toastTimer = 0;
+    /** @type {null | { from: number, pointerId: number }} */
+    let setupDrag = null;
 
     function setCookie(name, value, days) {
       const maxAge = days * 24 * 60 * 60;
@@ -464,6 +466,7 @@
           const canRemove = setupNames.length > MIN_PLAYERS;
           return `<div class="field" data-index="${i}">
             <label for="name-${i}">Spieler ${i + 1}</label>
+            <button type="button" class="btn-drag" data-drag="${i}" aria-label="Spieler ${i + 1} verschieben" title="Ziehen zum Sortieren">⠿</button>
             <input id="name-${i}" name="name${i}" maxlength="24" autocomplete="nickname"
               value="${escapeHtml(name)}" placeholder="Name" />
             <button class="btn-icon danger" type="button" data-remove="${i}"
@@ -472,11 +475,37 @@
         })
         .join("");
       els.btnAddPlayer.disabled = setupNames.length >= MAX_PLAYERS;
+      if (setupDrag) {
+        const field = els.playersList.querySelector(`.field[data-index="${setupDrag.from}"]`);
+        if (field) field.classList.add("dragging");
+      }
     }
 
     function syncSetupNamesFromDom() {
       const inputs = els.playersList.querySelectorAll("input");
       setupNames = Array.from(inputs).map((input) => input.value);
+    }
+
+    function rotateNames(names) {
+      if (!Array.isArray(names) || names.length < 2) return (names || []).slice();
+      return names.slice(1).concat(names[0]);
+    }
+
+    function setupIndexFromY(clientY) {
+      const fields = Array.from(els.playersList.querySelectorAll(".field"));
+      if (!fields.length) return 0;
+      for (let i = 0; i < fields.length; i++) {
+        const rect = fields[i].getBoundingClientRect();
+        if (clientY < rect.top + rect.height / 2) return i;
+      }
+      return fields.length - 1;
+    }
+
+    function endSetupDrag() {
+      if (!setupDrag) return;
+      setupDrag = null;
+      els.playersList.querySelectorAll(".field.dragging").forEach((el) => el.classList.remove("dragging"));
+      els.playersList.classList.remove("is-dragging");
     }
 
     function cellDisplay(rowIndex, player, row) {
@@ -1104,7 +1133,8 @@
           : ["", ""];
       session = null;
       saveSession();
-      setupNames = previousNames;
+      setupNames = rotateNames(previousNames);
+      endSetupDrag();
       renderSetupFields();
       showScreen("setup");
       els.viewport.classList.remove("flipped");
@@ -1136,6 +1166,47 @@
       if (setupNames.length <= MIN_PLAYERS) return;
       setupNames.splice(index, 1);
       renderSetupFields();
+    });
+
+    els.playersList.addEventListener(
+      "pointerdown",
+      (event) => {
+        const handle = event.target.closest("[data-drag]");
+        if (!handle) return;
+        event.preventDefault();
+        syncSetupNamesFromDom();
+        const from = Number(handle.dataset.drag);
+        if (!Number.isInteger(from)) return;
+        setupDrag = { from, pointerId: event.pointerId };
+        els.playersList.classList.add("is-dragging");
+        handle.closest(".field")?.classList.add("dragging");
+        try {
+          els.playersList.setPointerCapture(event.pointerId);
+        } catch {
+          /* ignore */
+        }
+      },
+      { passive: false }
+    );
+
+    els.playersList.addEventListener("pointermove", (event) => {
+      if (!setupDrag || event.pointerId !== setupDrag.pointerId) return;
+      const to = setupIndexFromY(event.clientY);
+      if (to === setupDrag.from) return;
+      const [name] = setupNames.splice(setupDrag.from, 1);
+      setupNames.splice(to, 0, name);
+      setupDrag.from = to;
+      renderSetupFields();
+    });
+
+    els.playersList.addEventListener("pointerup", (event) => {
+      if (!setupDrag || event.pointerId !== setupDrag.pointerId) return;
+      endSetupDrag();
+    });
+
+    els.playersList.addEventListener("pointercancel", (event) => {
+      if (!setupDrag || event.pointerId !== setupDrag.pointerId) return;
+      endSetupDrag();
     });
 
     els.form.addEventListener("submit", (event) => {
@@ -1319,15 +1390,6 @@
 
     // Pinch-Zoom (iOS Safari) unterbinden; Doppel-Tap via touch-action/viewport
     document.addEventListener("gesturestart", (event) => event.preventDefault());
-
-    // Beim Spielstart Vollbild anfordern
-    els.form.addEventListener(
-      "submit",
-      () => {
-        enterFullscreen();
-      },
-      { capture: true }
-    );
 
     updateFullscreenMenuLabel();
     resumeOrSetup();
